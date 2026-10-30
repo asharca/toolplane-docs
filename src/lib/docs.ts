@@ -13,5 +13,12 @@ export const getDocs = cache(async (): Promise<Doc[]> => Promise.all(publicDocs.
   file: doc.file, topic: doc.topic, category: doc.category, title: doc.title,
   language: doc.language, slug: doc.slug, url: doc.url,
   content: await doc.getText("processed"),
-  toc: doc.toc.map((entry) => ({ title: headingText(entry.title), depth: entry.depth, url: entry.url.replace(/^#/, "#user-content-") })),
+  toc: doc.toc.map((entry) => ({ title: headingText(entry.title), depth: entry.depth, url: entry.url })),
 }))));
+
+/** Never include executable MDX components in the serialized Doc contract. */
+export function getDocBody(file: string) {
+  const doc = publicDocs.find((candidate) => candidate.file === file);
+  if (!doc) throw new Error(`Unknown documentation source: ${file}`);
+  return doc.body;
+}

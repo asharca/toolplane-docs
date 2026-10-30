@@ -12,8 +12,7 @@ export function Reference() {
   const [server, setServer] = useState(defaultServer);
   const [draft, setDraft] = useState(defaultServer);
   return <>
-    <div className="reference-toolbar space-y-3 text-sm">
-      <h1 className="text-xl font-semibold">ToolPlane API Reference · Development snapshot</h1>
+    <div className="space-y-3 text-sm">
       <p>固定开发版 OpenAPI，不是线上稳定版契约。先选择你有权操作的实例；执行请求可能修改真实数据。凭据只应在明确选定目标后输入，不持久保存。</p>
       <p>Pinned development OpenAPI, not a stable production contract. Select an authorized instance before entering credentials or sending requests. Requests may change real data; credentials are not persisted.</p>
       <form className="flex flex-wrap items-center gap-3" onSubmit={(event) => { event.preventDefault(); setServer(draft.replace(/\/+$/, "")); }}>

@@ -23,13 +23,13 @@ pnpm preview
 ## 唯一创作源
 
 - 正文只在 **本仓库 `content/`** 编辑，不再在 ToolPlane 主仓库维护第二份公开文档。
-- `content/docs/**/*.md`：公开指南；`content/README.md`、`content/CHANGELOG.md` 与 `content/infra/firecrawl/README.md`：迁移时的完整源文快照。根目录本文件是本站维护说明，不是被迁移的项目 README。
+- `content/docs/**/*.{md,mdx}`：公开指南；`content/README.md`、`content/CHANGELOG.md` 与 `content/infra/firecrawl/README.md`：迁移时的完整源文快照。根目录本文件是本站维护说明，不是被迁移的项目 README。
 - `public/source/docs/assets/` 与 `public/source/docs/sandboxes/`：公开图片和可下载示例。保留其源相对路径，便于 Markdown 引用。
 - `source.config.ts` 是公开内容白名单；拒绝 plans、AGENTS/CLAUDE 指令和隐藏目录。不要将规划、个人笔记、凭据、运行数据、数据库导出或内部证据放入白名单目录。
-- 新增文章仍使用 `.md`。`.zh-CN.md` 表示中文、`.en.md` 表示英文；无语言后缀时，以首个一级标题是否含汉字判断语言。**没有译文就不生成译文页**；切换语言明确回到对应目录。
+- 普通文章使用 `.md`；需要官方 Tabs、Steps、Callout、Cards 等组件时使用 `.mdx`。`.zh-CN.md` / `.zh-CN.mdx` 表示中文，`.en.md` / `.en.mdx` 表示英文；无语言后缀时，以首个一级标题是否含汉字判断语言。**没有译文就不生成译文页**；切换语言明确回到对应目录。
 - 既有 URL 保持 `/docs/{zh|en}/{guides|developers|api}/{topic}`，topic 保留原始仓库路径、去掉语言和 `.md` 后缀。例如 `content/docs/AGENT_RUNTIMES.zh-CN.md` 对应 `/toolplane-docs/docs/zh/developers/docs/AGENT_RUNTIMES/`。
 - 使用原始相对 Markdown 链接，例如 `./SANDBOXES.zh-CN.md`、`../README.md`。渲染器在构建后的页面解析到本站目标；非文档源码链接仍指向 `asharca/ToolPlane` 的 GitHub，公开迁移资产在本站提供。正文不批量改写，不要手工加 basePath。
-- Fumadocs 提供响应式侧栏、TOC、主题与静态浏览器搜索；Streamdown 提供经过净化的 Markdown、代码与 Mermaid。生成目录 `.source/`、`.next/`、`out/` 不提交。
+- 页面使用 Fumadocs 官方 DocsLayout、DocsPage 与默认中性色主题，不维护自定义站点外壳或覆盖样式。正文由 Fumadocs MDX 编译，使用官方代码块、表格、Callout、Tabs、Steps、Cards 与 Mermaid 组件。参考[文档编写指南](https://asharca.github.io/toolplane-docs/docs/zh/developers/docs/DOCS_AUTHORING/)。生成目录 `.source/`、`.next/`、`out/` 不提交。
 - 迁移文档中保留的旧嵌入站说明属于历史原文；**本站作者工作流以本文件为准**。
 
 ## 跨仓库代码／文档配对流程
@@ -41,7 +41,7 @@ pnpm preview
 
 ## API 参考与固定快照
 
-`/api-reference/` 的 Scalar 从本站 `public/openapi.json` 加载固定开发版 OpenAPI，不在运行时拉取线上未固定 schema。快照来自迁移时 ToolPlane 的 `src/app/api/v1/openapi.json/route.ts` 的纯 `GET()`，合并 Agent 与 A2A 公共定义。来源、时间、源文件哈希和导出结果哈希记录在 `migration-manifest.json`。
+`/api-reference/` 默认使用 Fumadocs OpenAPI 官方组件展示固定开发版 `public/openapi.json`，不在运行时拉取线上未固定 schema。参考页关闭会持久保存凭据的内置 Playground；单独的“交互调试”标签保留 Scalar，并明确禁用凭据持久化。快照来自迁移时 ToolPlane 的 `src/app/api/v1/openapi.json/route.ts` 的纯 `GET()`，合并 Agent 与 A2A 公共定义。来源、时间、源文件哈希和导出结果哈希记录在 `migration-manifest.json`。
 
 默认目标是不可作为真实实例使用的 `https://toolplane.example.com`。可在页面上明确输入目标 URL，或者构建时配置公开的 `NEXT_PUBLIC_API_SERVER=https://your-instance.example.com`。该设置不是秘密，**不可放 token**。请求不会自动执行，凭据 `persistAuth: false`，不嵌入令牌、不提供凭据代理。请求受目标实例 CORS 限制；不要为方便调试放松生产边界。主应用的 <https://tp.rhzy.ai/docs-api> 和 <https://tp.rhzy.ai/api/v1/openapi.json> 仍是该实例自己的参考，版本可能不同。
 
@@ -67,4 +67,4 @@ process.stdout.write(JSON.stringify(await GET().json(), null, 2) + "\n");
 
 首次迁移从 ToolPlane 开发工作树导入 **21 份 Markdown 与 3 个公开资产／示例**，排除所有规划与代理指令。`migration-manifest.json` 逐文件保存原路径、目标路径、字节数与 SHA-256；正文按原始字节保留，不通过链接替换改变原文。源 HEAD 为 `87b28a8c68a3e14a00e25c3ecaa270e416c26c67`，同时包含当时未提交的开发工作树内容；具体导入时间见 manifest。README／CHANGELOG 页显示同一快照来源，不能将它描述为该 commit 的干净 checkout 或线上版本。
 
-原始文档及资产归属于 ToolPlane 项目及其各自作者；保留原文及已有声明。导入时 ToolPlane 根目录未发现 LICENSE，**本次迁移不新增、推断或扩大任何许可授权**；公开可访问不等于授予新的复制／再分发许可。第三方依赖依照各自发行包许可（Fumadocs 与 Scalar 为 MIT，Streamdown 为 Apache-2.0；传递依赖遵循各自许可）；本站未重新许可其源码，许可证与版权声明由包自身保留。
+原始文档及资产归属于 ToolPlane 项目及其各自作者；保留原文及已有声明。导入时 ToolPlane 根目录未发现 LICENSE，**本次迁移不新增、推断或扩大任何许可授权**；公开可访问不等于授予新的复制／再分发许可。第三方依赖依照各自发行包许可（Fumadocs 与 Scalar 为 MIT；Mermaid 及传递依赖遵循各自许可）；本站未重新许可其源码，许可证与版权声明由包自身保留。

@@ -1,36 +1,25 @@
-"use client";
+import { Suspense, type ComponentProps } from "react";
+import defaultMdxComponents from "fumadocs-ui/mdx";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { getDocBody } from "@/lib/docs";
+import { sitePath, withoutBase } from "@/lib/site";
+import { Mermaid } from "./mermaid";
 
-import { Streamdown, defaultRemarkPlugins } from "streamdown";
-import { code } from "@streamdown/code";
-import { mermaid } from "@streamdown/mermaid";
-import { remarkHeading } from "fumadocs-core/mdx-plugins/remark-heading";
-import { resolveDocLink } from "@/lib/docs-links";
+const components = {
+  ...defaultMdxComponents,
+  a: ({ href, ...props }: ComponentProps<typeof defaultMdxComponents.a>) => <defaultMdxComponents.a {...props} href={href ? withoutBase(href) : href} />,
+  Card: ({ href, ...props }: ComponentProps<typeof defaultMdxComponents.Card>) => <defaultMdxComponents.Card {...props} href={href ? withoutBase(href) : href} />,
+  img: ({ src, ...props }: ComponentProps<typeof defaultMdxComponents.img>) => <defaultMdxComponents.img {...props} src={typeof src === "string" ? sitePath(src) : src} />,
+  Tab,
+  Tabs,
+  Step,
+  Steps,
+  Mermaid: ({ chart }: { chart: string }) => <Suspense><Mermaid chart={chart} /></Suspense>,
+};
 
-type MarkdownNode = { type?: string; url?: string; children?: MarkdownNode[] };
-function documentLinks({ file, links }: { file: string; links: { file: string; url: string }[] }) {
-  return function visit(node: MarkdownNode) {
-    if (node.url) {
-      node.url = resolveDocLink(file, node.url, links, node.type === "image");
-      if ((node.url.startsWith("/toolplane-docs/docs/") || node.url.startsWith("#")) && !node.url.includes("#user-content-")) {
-        node.url = node.url.replace("#", "#user-content-");
-      }
-    }
-    node.children?.forEach(visit);
-  };
-}
-const blockedHtml = ["base", "embed", "iframe", "link", "meta", "object", "script", "style"];
-
-export function DocumentContent({ content, file, links }: { content: string; file: string; links: { file: string; url: string }[] }) {
-  return <Streamdown
-    mode="static"
-    className="docs-content"
-    plugins={{ code, mermaid }}
-    disallowedElements={blockedHtml}
-    components={{
-      a: ({ href, children, node: _node, ...props }) => <a {...props} href={href}
-        target={href?.startsWith("/") || href?.startsWith("#") ? undefined : "_blank"}
-        rel={href?.startsWith("/") || href?.startsWith("#") ? undefined : "noopener noreferrer"}>{children}</a>,
-    }}
-    remarkPlugins={[...Object.values(defaultRemarkPlugins), remarkHeading, [documentLinks, { file, links }]]}
-  >{content}</Streamdown>;
+/** Compiled MDX stays server-side; navigation and search receive only Doc metadata. */
+export function DocumentContent({ file }: { file: string }) {
+  const Body = getDocBody(file);
+  return <Body components={components} />;
 }
