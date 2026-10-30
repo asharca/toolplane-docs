@@ -1,0 +1,37 @@
+{
+  "name": "toolplane-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.1",
+  "engines": { "node": ">=26.12.1" },
+  "scripts": {
+    "postinstall": "fumadocs-mdx",
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "node scripts/preview.mjs",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@scalar/api-reference-react": "0.9.74",
+    "@streamdown/code": "1.1.1",
+    "@streamdown/mermaid": "1.0.2",
+    "fumadocs-core": "16.15.18",
+    "fumadocs-mdx": "15.4.6",
+    "fumadocs-ui": "16.15.18",
+    "next": "16.2.9",
+    "next-themes": "0.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "streamdown": "2.5.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

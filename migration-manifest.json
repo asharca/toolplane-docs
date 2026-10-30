@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "upstreamRepository": "https://github.com/asharca/ToolPlane",
+  "importedAt": "2026-10-30T13:19:00.611425+00:00",
+  "sourceWhitelist": {
+    "file": "source.config.ts",
+    "sha256": "eab34bc7d440b84303f05bf9f6539f45f8dad7c59b98448d9a5da3087070219a",
+    "files": [
+      "docs/**/*.md",
+      "README.md",
+      "CHANGELOG.md",
+      "infra/firecrawl/README.md"
+    ],
+    "excludes": [
+      "plans",
+      "agents and agents.*",
+      "claude and claude.*",
+      "dotfiles and hidden directories"
+    ]
+  },
+  "note": "Hashes describe the unmodified initial import. content/ is the sole authoring source after migration. No upstream license file was present in the import.",
+  "files": [
+    {
+      "source": "CHANGELOG.md",
+      "destination": "content/CHANGELOG.md",
+      "sha256": "ab812bcd09de5a932a922ad7d36123a3e341dbec01bf7a4a83fbae85d41dab27",
+      "bytes": 40684
+    },
+    {
+      "source": "README.md",
+      "destination": "content/README.md",
+      "sha256": "63f31f504140c6f7d1f8a360d3c05373e1890750cafeefa6391d08fa4b9acf31",
+      "bytes": 8477
+    },
+    {
+      "source": "docs/A2A_CONSOLE.zh-CN.md",
+      "destination": "content/docs/A2A_CONSOLE.zh-CN.md",
+      "sha256": "25b2ab7f6d04a7091223f0adb85ae827acefdd4c42a392f3e996ea5572b88cf1",
+      "bytes": 7358
+    },
+    {
+      "source": "docs/A2A_INGRESS_APPROVALS.zh-CN.md",
+      "destination": "content/docs/A2A_INGRESS_APPROVALS.zh-CN.md",
+      "sha256": "0d89e5a8871285cab648374d5b55a7b127de27a55df57c2962be2bc73cbdc401",
+      "bytes": 9219
+    },
+    {
+      "source": "docs/A2A_LOCAL_COLLABORATION.zh-CN.md",
+      "destination": "content/docs/A2A_LOCAL_COLLABORATION.zh-CN.md",
+      "sha256": "4eb4e1e0509693fa30d3b2238c70fbd43eb9ccfc1dbbf0fd86b97f9cc1107e0e",
+      "bytes": 12540
+    },
+    {
+      "source": "docs/A2A_MCP_BRIDGE.zh-CN.md",
+      "destination": "content/docs/A2A_MCP_BRIDGE.zh-CN.md",
+      "sha256": "4c8c542ee5f6c43796b3c6a0d7dceb3a7f387209be2678009f580a33957049f0",
+      "bytes": 4477
+    },
+    {
+      "source": "docs/A2A_NATIVE.zh-CN.md",
+      "destination": "content/docs/A2A_NATIVE.zh-CN.md",
+      "sha256": "09075f686e37f86d82899faabe670d0551b7234f059db358444e9276d7484b43",
+      "bytes": 9019
+    },
+    {
+      "source": "docs/A2A_REMOTE_AGENTS.zh-CN.md",
+      "destination": "content/docs/A2A_REMOTE_AGENTS.zh-CN.md",
+      "sha256": "97e28481c769d8c22e0ab483bd925a7b11c5ad7af8874e9cfde71bbfe709e314",
+      "bytes": 8642
+    },
+    {
+      "source": "docs/A2A_RESOURCE_LIMITS.zh-CN.md",
+      "destination": "content/docs/A2A_RESOURCE_LIMITS.zh-CN.md",
+      "sha256": "22c2e6b84610fc7746c1d031c62bb5f6a603c26b1731ad8c3fabca7f5600e3c5",
+      "bytes": 3772
+    },
+    {
+      "source": "docs/AGENT_CONTROL_MCP.zh-CN.md",
+      "destination": "content/docs/AGENT_CONTROL_MCP.zh-CN.md",
+      "sha256": "d14aa35a7d6fe97eb58d4e0afe8e27f355d8ac8ba4a5fa2a4d455ea45fccfee1",
+      "bytes": 4945
+    },
+    {
+      "source": "docs/AGENT_MESSAGING_PLATFORMS.zh-CN.md",
+      "destination": "content/docs/AGENT_MESSAGING_PLATFORMS.zh-CN.md",
+      "sha256": "46754f1a47cfcf4e5bd46eacec6b5612fd1b7cd550f635e7337c19a96218afd0",
+      "bytes": 13602
+    },
+    {
+      "source": "docs/AGENT_PUBLIC_API.zh-CN.md",
+      "destination": "content/docs/AGENT_PUBLIC_API.zh-CN.md",
+      "sha256": "436a436d8649024f607d5c3492c3fc687e24ae0419baa208da6160053e9dff6c",
+      "bytes": 8820
+    },
+    {
+      "source": "docs/AGENT_RUNTIMES.zh-CN.md",
+      "destination": "content/docs/AGENT_RUNTIMES.zh-CN.md",
+      "sha256": "a75f1fe09f55c06eba1756f115e1f71687d0c1a373e8158497c47bf87c500192",
+      "bytes": 17665
+    },
+    {
+      "source": "docs/OBSERVABILITY.zh-CN.md",
+      "destination": "content/docs/OBSERVABILITY.zh-CN.md",
+      "sha256": "08acd609e513ac06524e8b9c93dfda9792d0c170126b7ccacd0aaeb2f471478f",
+      "bytes": 11341
+    },
+    {
+      "source": "docs/README.zh-CN.md",
+      "destination": "content/docs/README.zh-CN.md",
+      "sha256": "6dc945740cb6552aeca53a9e10782320057d5c5857122d328ff4a7e922385220",
+      "bytes": 4696
+    },
+    {
+      "source": "docs/RELEASES.zh-CN.md",
+      "destination": "content/docs/RELEASES.zh-CN.md",
+      "sha256": "fa1f2b33affff203b1566bdfbde6edc6e0dbede7745e4fbfdbc89024714d2eed",
+      "bytes": 3362
+    },
+    {
+      "source": "docs/REMOTE_MCP_HTTP.zh-CN.md",
+      "destination": "content/docs/REMOTE_MCP_HTTP.zh-CN.md",
+      "sha256": "28a83e91e7a4a9e57923d488e56e96b654bdb6de5e3367c2aa787f6997e7cf15",
+      "bytes": 8721
+    },
+    {
+      "source": "docs/RUNTIME_OPERATIONS.zh-CN.md",
+      "destination": "content/docs/RUNTIME_OPERATIONS.zh-CN.md",
+      "sha256": "e72055c7d1bd2b8e63745197b7abe599c1ac9ae1e6218dce374084b0200dc937",
+      "bytes": 41181
+    },
+    {
+      "source": "docs/SANDBOXES.zh-CN.md",
+      "destination": "content/docs/SANDBOXES.zh-CN.md",
+      "sha256": "2b414d530ea8121bcd4c26820a34c403ac74efd032812454819ecccd13efa924",
+      "bytes": 14712
+    },
+    {
+      "source": "docs/UI_LIBRARY.zh-CN.md",
+      "destination": "content/docs/UI_LIBRARY.zh-CN.md",
+      "sha256": "eb35850005fd8c417212a059e49e51716ab958914c549565e8937cf1f85784cf",
+      "bytes": 10812
+    },
+    {
+      "source": "docs/assets/toolplane-overview.svg",
+      "destination": "public/source/docs/assets/toolplane-overview.svg",
+      "sha256": "6314bffb3607105bb33e0567de5c2c53c41d23ce00960c7c9636bf3a2349cafe",
+      "bytes": 3770
+    },
+    {
+      "source": "docs/sandboxes/docker-compose.ssh.example.yml",
+      "destination": "public/source/docs/sandboxes/docker-compose.ssh.example.yml",
+      "sha256": "2081ce4e18595df398e31dcf75d196a5b2a79df3e79a850f2c1ccec2e0373c74",
+      "bytes": 310
+    },
+    {
+      "source": "docs/sandboxes/ssh-targets.example.json",
+      "destination": "public/source/docs/sandboxes/ssh-targets.example.json",
+      "sha256": "b24b280fc0b6c7120c1e5a2d8b52aff8d4801d1189fa88253154eea2b71e65bc",
+      "bytes": 359
+    },
+    {
+      "source": "infra/firecrawl/README.md",
+      "destination": "content/infra/firecrawl/README.md",
+      "sha256": "f6d349b8049bfa437e74b2e583006e58e29b930cb7011f6097175fa365e5c351",
+      "bytes": 2865
+    }
+  ],
+  "upstreamCommit": "87b28a8c68a3e14a00e25c3ecaa270e416c26c67",
+  "sourceState": "Current development worktree, including uncommitted changes; not a production release snapshot.",
+  "openapi": {
+    "destination": "public/openapi.json",
+    "sha256": "ac891bee0e434ed858a63bd2de51d2588734013e98f9da2106f60ae4adae121d",
+    "bytes": 81751,
+    "generatedFrom": "src/app/api/v1/openapi.json/route.ts GET()",
+    "sourceFiles": [
+      {
+        "source": "src/app/api/v1/openapi.json/route.ts",
+        "sha256": "57ee0ebab1c262ce9a80b89cf4064139561f296a4cb42b412bd0195fcc6a809b"
+      },
+      {
+        "source": "src/lib/agents/public-api/openapi.ts",
+        "sha256": "284e0053b22fd164c0e398d3e24a8dc3a4a5e011492bf001c01062952ee6a7bf"
+      },
+      {
+        "source": "src/lib/a2a/openapi.ts",
+        "sha256": "c3c2b0c985f9360e6d00ba1b16b86802ef4e16b766748d5e2988d7a7ca4a5dad"
+      },
+      {
+        "source": "src/lib/a2a/validation.ts",
+        "sha256": "669355c15b90d60f28bf5116ae7f5d8e6cae0107167c72cd512d91d46e7e818c"
+      },
+      {
+        "source": "src/lib/agents/revision-types.ts",
+        "sha256": "d6aad013a853718d830fd4e959c8f0628c2485a28e77f9e51d542267fc4be816"
+      }
+    ],
+    "method": "Local node --conditions=react-server --import tsx import of GET; JSON-only serialization, no remote fetch."
+  }
+}

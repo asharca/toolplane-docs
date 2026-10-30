@@ -1,0 +1,21 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@source "../../node_modules/streamdown/dist/*.js";
+
+body { margin: 0; }
+.docs-site { --fd-banner-height: 7.75rem; }
+.docs-site #nd-docs-layout { --fd-docs-height: calc(100dvh - var(--fd-banner-height)); }
+@media (min-width: 768px) { .docs-site { --fd-banner-height: 5.5rem; } }
+.docs-content { overflow-wrap: anywhere; }
+.docs-content pre, .docs-content table { max-width: 100%; overflow-x: auto; }
+.docs-content table { display: block; }
+.docs-content h1, .docs-content h2, .docs-content h3, .docs-content h4 { scroll-margin-top: 9rem; }
+.docs-content [data-streamdown="mermaid"] { overflow-x: auto; }
+.docs-site select { color: var(--color-fd-foreground); background: var(--color-fd-background); }
+.landing { max-width: 60rem; margin: 0 auto; padding: 4rem 1.25rem; }
+.landing h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; line-height: 1.2; }
+.landing p { margin: 1.25rem 0; line-height: 1.8; }
+.landing a { text-decoration: underline; text-underline-offset: 4px; }
+.reference-toolbar { padding: 1rem 1.5rem; border-bottom: 1px solid var(--color-fd-border); }
+.reference-toolbar input { width: min(100%, 32rem); padding: .5rem; border: 1px solid var(--color-fd-border); border-radius: .375rem; }

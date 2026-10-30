@@ -1,0 +1,10 @@
+packages:
+  - .
+# Matches ToolPlane's native Markdown compiler compatibility override.
+overrides:
+  style-to-js: 1.1.21
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

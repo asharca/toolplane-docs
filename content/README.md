@@ -1,0 +1,115 @@
+# ToolPlane 项目介绍
+
+> 统一管理 MCP 和 Skill，同步到 AI 客户端，或在沙箱中直接运行 Agent。
+
+ToolPlane 是一个自托管的 AI 工具与 Agent 平台，以工作区组织工具、技能、模型和运行环境。实例凭据、工作区数据与托管运行时由部署者管理。
+
+[中文文档](docs/README.zh-CN.md) · [运行与维护](docs/RUNTIME_OPERATIONS.zh-CN.md)
+
+## 核心能力
+
+- **MCP 管理**：从目录或自定义配置部署服务，支持 npm、PyPI、GitHub 和 Docker 来源。
+- **插件中心与客户端**：从 GitHub 同步统一版本的组合插件包，一个包可包含 MCP、Skill、Pi 能力包、Agent 和 Assistant；按需选择成员、审阅更新，保留固定提交与审计。不接受本地上传或站内内容发布。客户端按独立 scope 注册，旧 Toolkit 执行与令牌已退役。
+- **Agent 执行**：仅使用 Pi 内核（内部标识 `pi-sdk`），审查并应用不可变修订后，在独立会话沙箱中执行；其他旧运行时仅保留只读历史。
+- **沙箱与设备**：管理 Docker 沙箱，通过 Connector 连接自己的电脑，或通过 ADB 桥接 Android。
+- **观测与集成**：查看调用、延迟和错误，通过 MCP、API 或消息渠道接入。
+
+## 工作方式
+
+```mermaid
+flowchart TB
+  MCP["MCP 服务"] --> Package["不可变能力包"]
+  Skills["Skill · Prompt · 文件"] --> Package
+  Package -->|审查并应用| Revision["Agent 修订"]
+  Package -->|独立授权注册| Clients["外部 AI 客户端"]
+  Revision --> Session["Pi 会话 · 固定修订"]
+  Session --> Sandbox["独立持久工作卷"]
+```
+
+Agent 会话固定已应用的修订，后续包更新不会自动改变现有会话。能力审查、运行时限制与历史数据边界见[运行时文档](docs/AGENT_RUNTIMES.zh-CN.md)。
+
+## 快速开始
+
+获取项目并准备配置；已有 `.env` 时请保留原配置：
+
+```bash
+git clone https://github.com/asharca/ToolPlane.git
+cd ToolPlane
+test -f .env || cp .env.example .env
+```
+
+启动前，将 `.env` 中的 `AUTH_SECRET` 替换为随机密钥，可用 `openssl rand -base64 32` 生成。
+
+### Docker 部署
+
+需要 Docker Compose。将 `NEXT_PUBLIC_APP_URL` 设为实际访问地址；本机体验可使用默认的 `http://localhost:10030`。
+
+```bash
+docker compose pull app
+docker compose up -d
+```
+
+应用默认端口为 `10030`。公网部署前，请配置 HTTPS、端口访问控制及备份，详见[运行与维护](docs/RUNTIME_OPERATIONS.zh-CN.md)。
+
+### 本地开发
+
+需要 Node.js 26、pnpm 和 Docker。在 `.env` 中使用以下本地地址：
+
+```dotenv
+DATABASE_URL="postgresql://mcp:mcp@localhost:5433/toolplane?schema=public"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+pnpm install --frozen-lockfile
+pnpm db:generate
+pnpm db:migrate
+pnpm dev
+```
+
+访问 `http://localhost:3000`。可选执行 `pnpm db:seed` 创建本地演示账户 `smoke@example.com` / `password123`；不要在生产数据库运行演示种子。种子只创建未授权的 Pi 草稿与停止状态模板，不创建插件中心内容、发布版本、凭据、API token 或运行进程；已有账户与草稿不重置。资源从 GitHub 仓库同步后，仍须配置并显式 Prepare／审阅／Apply。
+
+`pnpm install` 自动安装仓库的 Git hooks；已有 checkout 可运行 `pnpm hooks:install`。安装器不覆盖其他 `core.hooksPath` 配置，无 `.git` 的镜像依赖层和发布归档跳过安装。
+
+- **pre-commit**：在临时目录中检查 Git index 的文件快照，并从 index 读取 `package.json`、`biome.json` 和 `.gitignore`，确保 React/Next 规则及忽略设置与待提交内容一致；使用 Biome 校验语法、lint 和格式，不自动修改工作区或暂存内容，支持部分暂存。
+- **pre-push**：要求推送当前 `HEAD` 且已跟踪文件无未提交变更，运行 `pnpm check`（`biome ci . --error-on-warnings`、Next 路由类型生成和 TypeScript 检查）。先执行 `pnpm db:generate` 准备 Prisma 类型；不连接数据库或运行迁移。
+- CI 复用 `pnpm check`，再运行完整测试和构建；只检查、不自动修复。hooks 不替代受保护分支的 CI。
+- lint 和 formatter 统一使用锁定版本的 Biome，不再运行 ESLint/Prettier。`biome.json` 使用推荐规则，不保留迁移期的 warning 降级；提交、推送和 CI 均阻断 error、warning、语法和格式问题。明确的框架约束或安全处理仅允许带原因的局部例外，不批量添加忽略注释。
+- 编辑器安装官方 `biomejs.biome` 扩展并将其设为 JS/TS/JSON/CSS 的默认 formatter，可启用保存时格式化。import 自动整理暂不启用，避免工具迁移改变导入顺序。
+- 格式化覆盖 Biome 支持的仓库文件；生成目录和原始测试 fixtures 不参与。Markdown/MDX、YAML、Python、SQL、Prisma 等不由本配置格式化，不额外引入第二套 formatter。
+
+## 使用入口
+
+侧栏“插件中心”展开为浏览插件包、工作区资源、更新和 GitHub 来源；独立 Skill/MCP 入口负责工作区管理。工作区 owner/admin 登记 GitHub 仓库并同步 schemaVersion 2 的 `registry.json`，内容与整包版本通过 GitHub PR 管理；初始官方仓库为 [`asharca/toolplane-plugins`](https://github.com/asharca/toolplane-plugins)。安装时选择包内成员，新增成员不会在更新时默认勾选；同步、安装和更新均不执行资源、不自动授权，也不改变已有会话版本。客户端另行注册并授权，旧 Toolkit 转换不继承执行权限。外部 AI 客户端可从 **Agents → Connect AI** 获取 Agent Control MCP 配置。仓库协议、升级顺序、私有来源和签名 Webhook 见[资源同步操作](docs/RUNTIME_OPERATIONS.zh-CN.md#github-插件中心)。
+
+设备连接请使用沙箱页面生成的 Connector 命令；支持范围、系统要求及屏幕访问方式见[沙箱与连接器](docs/SANDBOXES.zh-CN.md)。连接器以本地用户权限运行，不等同于隔离容器。
+
+## 开发命令
+
+| 命令 | 用途 |
+|---|---|
+| `pnpm dev` | 启动开发服务 |
+| `pnpm lint` / `pnpm lint:fix` | Biome lint / 安全自动修复（不启用 unsafe） |
+| `pnpm format` / `pnpm format:check` | 全仓格式化 / 只检查格式 |
+| `pnpm check:staged` / `pnpm check` | 暂存区检查 / 全量 Biome 与类型检查 |
+| `pnpm test` | 串行运行核心功能与安全边界测试 |
+| `pnpm test:coverage` | 可选：运行核心测试并生成覆盖率报告，不设全仓百分比门槛 |
+| `pnpm build` | 生产构建 |
+| `pnpm db:migrate` / `pnpm db:studio` | 开发数据库迁移与查看 |
+| `pnpm connector:dev` | 调试设备连接器 |
+
+测试集中保护身份与工作区隔离、Pi/Assistant 执行、不可变修订与凭据授权、会话/Work/A2A 生命周期、MCP 接入以及文件与恢复边界。普通页面、样式、文案、内部函数转发和数据库查询形状不作为永久测试目标；保留的前端测试验证失败恢复、输入保留与错误修订不可应用等核心状态转换。
+
+CI 执行 `pnpm test`，不追求全仓覆盖率数字。需要诊断覆盖情况时可运行 `pnpm test:coverage`，报告写入 `coverage/coverage-summary.json` 和 `coverage/lcov.info`；统计范围为 `src` 与 `packages/connector/bin`，不能代表外部容器或子进程内部的覆盖率。集成测试需要独立的 pgvector PostgreSQL 测试库；先生成 Prisma Client、应用数据库迁移，并构建 Pi 包捕获镜像（`docker build --target pi-package-capture -t toolplane-pi-package-capture:0.87.1 .`），不要使用业务数据库运行测试。
+
+## 文档
+
+| 主题 | 入口 |
+|---|---|
+| 架构与运行时 | [Pi 内核与历史边界](docs/AGENT_RUNTIMES.zh-CN.md) |
+| 工具与客户端 | [文档索引](docs/README.zh-CN.md) · [沙箱与连接器](docs/SANDBOXES.zh-CN.md) |
+| 对外集成 | [Agent Control MCP](docs/AGENT_CONTROL_MCP.zh-CN.md) · [公共 API](docs/AGENT_PUBLIC_API.zh-CN.md) · [消息渠道](docs/AGENT_MESSAGING_PLATFORMS.zh-CN.md) |
+| 部署与维护 | [升级与恢复](docs/RUNTIME_OPERATIONS.zh-CN.md) · [日志与审计](docs/OBSERVABILITY.zh-CN.md) |
+
+完整目录见[文档索引](docs/README.zh-CN.md)。ToolPlane 需要单个持续运行的应用进程，不适合 Serverless，也不要让多个实例同时操作同一运行域。
