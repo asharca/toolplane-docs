@@ -20,7 +20,6 @@ const publicAssets: Record<string, true> = {
 export function resolveDocLink(file: string, href: string, docs: Pick<Doc, "file" | "url">[], image = false): string {
   if (!href || /^(?:[a-z][a-z\d+.-]*:|\/\/|#|\?)/i.test(href)) return href;
   if (href.startsWith("/")) {
-    if (/^\/docs-api(?:[/?#]|$)/.test(href)) return sitePath(href.replace(/^\/docs-api/, "/api-reference"));
     if (href === "/api/v1/openapi.json") return sitePath("/openapi.json");
     if (/^\/docs(?:[/?#]|$)/.test(href)) return sitePath(href);
     if (href.startsWith("/toolplane-docs/")) return href;

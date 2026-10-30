@@ -12,7 +12,7 @@ export function DocsShell({ docs, children }: { docs: NavDoc[]; children: React.
   const router = useRouter();
   const language = pathname.split("/")[2] === "en" ? "en" : "zh";
   const section = pathname.split("/")[3];
-  const category = pathname === "/api-reference" || section === "api" ? "api" : section === "developers" ? "developers" : "guides";
+  const category = section === "api" ? "api" : section === "developers" ? "developers" : "guides";
   const zh = language === "zh";
   const base = `/docs/${language}`;
   const labels = zh ? { guides: "使用指南", developers: "开发者文档", api: "API 与协议" } : { guides: "Guides", developers: "Developers", api: "API & protocols" };
@@ -52,7 +52,6 @@ export function DocsShell({ docs, children }: { docs: NavDoc[]; children: React.
             `${base}/${key}`,
             ...docs.filter((doc) => doc.language === language && doc.category === key).map((doc) => doc.url),
             ...(key === "guides" ? [base] : []),
-            ...(key === "api" ? ["/api-reference"] : []),
           ]),
         }))}
         tree={{ name: labels[category], children: [

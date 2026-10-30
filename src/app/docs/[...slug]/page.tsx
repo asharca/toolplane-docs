@@ -20,7 +20,6 @@ export async function generateStaticParams() {
     ...(["zh", "en"] as const).flatMap((language) => [
       { slug: [language] },
       ...Object.keys(categories[language]).map((category) => ({ slug: [language, category] })),
-      { slug: [language, "api", "reference"] },
     ]),
     ...docs.map((doc) => ({ slug: doc.slug })),
   ];
@@ -40,14 +39,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   if (slug.length === 1) return <DocsPage full><DocsTitle>{zh ? "ToolPlane 开发文档" : "ToolPlane development documentation"}</DocsTitle><DocsDescription>{zh ? "中文优先，文档与代码共同演进。" : "Chinese-first documentation, evolving with the development code."}</DocsDescription><DocsBody>
     <p>{zh ? "使用指南、开发者文档与 API 协议按原始文档语言分类。页面不等同于当前线上版本承诺。" : "Only genuinely English source documents appear here. Most current guides are available in Chinese; no automatic or placeholder translations are supplied."}</p>
     <Cards>{Object.entries(categories[language]).map(([key, title]) => <Card key={key} href={`/docs/${language}/${key}`} title={title}>{docs.filter((doc) => doc.language === language && doc.category === key).length} {zh ? "篇原始文档" : "source documents"}</Card>)}</Cards>
-    <p><Link href="/api-reference">Interactive API Reference · development snapshot</Link></p>
     {!zh && <p><Link href="/docs/zh">查看中文开发文档 / Browse Chinese documentation →</Link></p>}
   </DocsBody></DocsPage>;
-  if (slug.length === 3 && category === "api" && slug[2] === "reference") return <DocsPage full><DocsTitle>Interactive API Reference</DocsTitle><DocsBody><p>Development snapshot; choose the intended server before sending requests.</p><Link href="/api-reference">Open the standalone reference →</Link></DocsBody></DocsPage>;
   if (slug.length === 2 && Object.hasOwn(categories[language], category)) {
     const visible = docs.filter((doc) => doc.language === language && doc.category === category);
     return <DocsPage full><DocsTitle>{categories[language][category as keyof typeof categories.zh]}</DocsTitle><DocsBody>
-      {category === "api" && <p><Link href="/api-reference">{zh ? "打开本站交互式 API 参考（固定开发快照）" : "Open this site's interactive API reference (pinned development snapshot)"}</Link> · <a href={`${APP_URL}/docs-api`} target="_blank" rel="noopener noreferrer">{zh ? "线上实例参考（版本可能不同）" : "Live app reference (version may differ)"}</a></p>}
+      {category === "api" && <p><a href={`${APP_URL}/docs-api`} target="_blank" rel="noopener noreferrer">{zh ? "线上实例参考（版本可能不同）" : "Live app reference (version may differ)"}</a></p>}
       {visible.length ? <Cards>{visible.map((doc) => <Card key={doc.file} href={doc.url} title={doc.title}>{doc.file}</Card>)}</Cards> : <p>{zh ? "此分类尚无该语言的原文。" : "No English source documents in this section. Translations are not yet available."} <Link href={`/docs/${zh ? "en" : "zh"}/${category}`}>{zh ? "查看英文目录" : "Browse the Chinese section"}</Link></p>}
     </DocsBody></DocsPage>;
   }

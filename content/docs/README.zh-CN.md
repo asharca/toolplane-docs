@@ -8,7 +8,7 @@
 
 - **用户文档**：安装、配置、集成与日常运维。
 - **开发者文档**：架构、运行时实现、贡献与发布维护。
-- **API 文档**：协议与接入说明，以及本站 `/toolplane-docs/api-reference/` 的 Scalar 交互式参考。本站使用固定的开发版 OpenAPI 快照；执行请求前明确选择有权访问的目标实例。运行中应用的 `/docs-api` 和 `/api/v1/openapi.json` 则描述该实例自身版本。
+- **API 文档**：协议与接入说明。独立文档站不再提供交互式 API 参考页；运行中应用的 `/docs-api` 和 `/api/v1/openapi.json` 描述该实例自身版本。
 
 网站采用 [Fumadocs](https://fumadocs.dev) 提供导航、响应式布局和全文搜索，正文复用安全的 Streamdown 渲染 Markdown、代码和 Mermaid。Fumadocs 在 `/docs/search` 生成静态搜索索引，内置搜索框在浏览器本地搜索并按当前语言与分类过滤。相对 Markdown 链接保留目标文档的语言，其他仓库文件链接指向 GitHub；共享链接解析位于 `src/lib/docs-links.ts`。
 
