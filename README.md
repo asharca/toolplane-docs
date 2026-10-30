@@ -30,6 +30,7 @@ pnpm preview
 - 既有 URL 保持 `/docs/{zh|en}/{guides|developers|api}/{topic}`，topic 保留原始仓库路径、去掉语言和 `.md` 后缀。例如 `content/docs/AGENT_RUNTIMES.zh-CN.md` 对应 `/toolplane-docs/docs/zh/developers/docs/AGENT_RUNTIMES/`。
 - 使用原始相对 Markdown 链接，例如 `./SANDBOXES.zh-CN.md`、`../README.md`。渲染器在构建后的页面解析到本站目标；非文档源码链接仍指向 `asharca/ToolPlane` 的 GitHub，公开迁移资产在本站提供。正文不批量改写，不要手工加 basePath。
 - 页面使用 Fumadocs 官方 DocsLayout、DocsPage 与默认中性色主题，不维护自定义站点外壳或覆盖样式。正文由 Fumadocs MDX 编译，使用官方代码块、表格、Callout、Tabs、Steps、Cards 与 Mermaid 组件。参考[文档编写指南](https://asharca.github.io/toolplane-docs/docs/zh/developers/docs/DOCS_AUTHORING/)。生成目录 `.source/`、`.next/`、`out/` 不提交。
+- 侧栏仅保留分类切换与当前分类的文档列表，不展示“文档首页”“API Reference”“实例”或“分类概览”快捷项；对应页面继续可访问，点击站点标题可返回文档首页。
 - 迁移文档中保留的旧嵌入站说明属于历史原文；**本站作者工作流以本文件为准**。
 
 ## 跨仓库代码／文档配对流程

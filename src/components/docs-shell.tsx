@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import type { Doc } from "@/lib/docs-links";
-import { APP_URL, DOCS_REPO, sitePath, withoutBase } from "@/lib/site";
+import { DOCS_REPO, sitePath, withoutBase } from "@/lib/site";
 
 type NavDoc = Pick<Doc, "url" | "title" | "language" | "category" | "topic">;
 export function DocsShell({ docs, children }: { docs: NavDoc[]; children: React.ReactNode }) {
@@ -45,11 +45,6 @@ export function DocsShell({ docs, children }: { docs: NavDoc[]; children: React.
       <DocsLayout
         nav={{ title: zh ? "ToolPlane · 开发文档" : "ToolPlane · Dev Docs", url: base }}
         githubUrl={DOCS_REPO}
-        links={[
-          { text: zh ? "文档首页" : "Documentation index", url: base },
-          { text: "API Reference", url: "/api-reference" },
-          { text: zh ? "实例（版本可能不同）" : "Live app (version may differ)", url: APP_URL, external: true },
-        ]}
         tabs={categories.map((key) => ({
           title: labels[key],
           url: `${base}/${key}`,
@@ -61,8 +56,6 @@ export function DocsShell({ docs, children }: { docs: NavDoc[]; children: React.
           ]),
         }))}
         tree={{ name: labels[category], children: [
-          { type: "page", name: zh ? "分类概览" : "Section overview", url: `${base}/${category}` },
-          ...(category === "api" ? [{ type: "page" as const, name: "Interactive API Reference", url: "/api-reference" }] : []),
           ...visible.map((doc) => ({ type: "page" as const, name: doc.title, url: doc.url })),
         ] }}>
         {children}
