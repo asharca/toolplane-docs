@@ -4,17 +4,19 @@
 
 ## 文档网站
 
-访问部署域名的 `/docs/zh` 阅读中文站，或 `/docs/en` 阅读英文站，无需登录；`/docs` 默认进入中文站。两种语言分别拥有独立首页、导航、侧栏和搜索，中文站按以下分类组织：
+访问 [ToolPlane 中文开发文档](https://asharca.github.io/toolplane-docs/docs/zh/)；英文入口为 `/toolplane-docs/docs/en/`，只有真实英文原文，不生成占位翻译。站点无需登录，独立于应用部署。当前内容对应开发分支，不代表线上稳定版；阅读前核对所用代码版本。中文站按以下分类组织：
 
-- **用户文档**（`/docs/zh/guides`）：安装、配置、集成与日常运维。
-- **开发者文档**（`/docs/zh/developers`）：架构、运行时实现、贡献与发布维护。
-- **API 文档**（`/docs-api`）：独立 Scalar 交互式参考，从 `/api/v1/openapi.json` 加载接口定义，不嵌入文档站。中文协议与接入说明仍可从开发者文档进入 `/docs/zh/api`。
+- **用户文档**：安装、配置、集成与日常运维。
+- **开发者文档**：架构、运行时实现、贡献与发布维护。
+- **API 文档**：协议与接入说明，以及本站 `/toolplane-docs/api-reference/` 的 Scalar 交互式参考。本站使用固定的开发版 OpenAPI 快照；执行请求前明确选择有权访问的目标实例。运行中应用的 `/docs-api` 和 `/api/v1/openapi.json` 则描述该实例自身版本。
 
 网站采用 [Fumadocs](https://fumadocs.dev) 提供导航、响应式布局和全文搜索，正文复用安全的 Streamdown 渲染 Markdown、代码和 Mermaid。Fumadocs 在 `/docs/search` 生成静态搜索索引，内置搜索框在浏览器本地搜索并按当前语言与分类过滤。相对 Markdown 链接保留目标文档的语言，其他仓库文件链接指向 GitHub；共享链接解析位于 `src/lib/docs-links.ts`。
 
-Markdown 原文件是唯一内容来源：直接修改 `docs/**/*.md`、仓库根目录的 `README.md` 或 `infra/firecrawl/README.md`，不要另建网站内容副本。`CHANGELOG.md` 仅由 GitHub CI/CD 自动生成，不手动编辑。`source.config.ts` 定义 Fumadocs MDX 内容集合，在构建时完成分类与语言识别：`.en.md` 为英文，`.zh-CN.md` 为中文，无语言后缀时，首个标题含汉字则为中文，否则为英文；标题应使用正文的语言。页面地址为 `/docs/{语言}/{分类}/{仓库相对主题路径}`，去掉文件名的语言后缀。当前专题以保留的中文文档为准，不要求为已删除专题创建翻译或重复副本；新增主题时同步检查分类映射。Agent 指令、计划、隐藏文件、环境文件与源代码不作为文档发布。上述公开文档不要写入凭据或私有运维数据。
+公开文档的唯一维护源是 [`asharca/toolplane-docs`](https://github.com/asharca/toolplane-docs) 的 `content/`。主题放在 `content/docs/`，图片与示例配置一并维护；不再编辑 ToolPlane 主仓库中的旧文档正文。迁入的项目 README 与 CHANGELOG 是带来源记录的历史快照，不会自动同步；应用仓库根 README 和自动生成的 CHANGELOG 仍在应用仓库维护。
 
-官方 Fumadocs MDX Next.js 插件按 Markdown（不是 MDX）编译白名单内的 `.md` 文件，将处理后的 Markdown 和搜索数据编入应用产物；不在请求时读取文件系统，也没有额外的内容复制管线。Docker 镜像和发布压缩包使用同一 standalone 产物，`server.js` 旁无需保留 Markdown 原文件。修改文档后需重新构建部署。
+`source.config.ts` 在构建时完成分类与语言识别：`.en.md` 为英文，`.zh-CN.md` 为中文，无语言后缀时按首个标题识别。路径为 `/toolplane-docs/docs/{语言}/{分类}/{原主题路径}`，去掉文件名语言后缀。新增主题应检查分类、相对链接、搜索和语言切换；不发布 Agent 指令、内部计划、隐藏文件、环境文件或私有运维数据。
+
+合并文档 PR 到 `main` 后，GitHub Actions 使用 pnpm 和 Fumadocs 构建静态 HTML、搜索索引与资源并发布到 GitHub Pages。站点不依赖应用数据库、Node 常驻服务或运行时凭据。原应用的文档入口切换只在应用升级后生效，不能仅靠发布文档改变旧应用。
 
 ## 架构与运行时
 
@@ -50,7 +52,7 @@ Markdown 原文件是唯一内容来源：直接修改 `docs/**/*.md`、仓库�
 ## 维护约定
 
 - 每个主题维护唯一内容来源，并在本索引登记；其他位置链接到现存文档，不恢复已删除的旧专题或翻译副本。
-- 行为以代码为准；实现变化时，在同一 PR 更新相关文档。结构图和流程图优先使用 Mermaid。
-- 新专题放在 `docs/` 根目录，中文使用 `TOPIC_NAME.zh-CN.md`，开头说明用途与读者。
+- 行为以代码为准；跨仓库的功能变更应关联代码 PR 与文档 PR，并说明适用版本。结构图和流程图优先使用 Mermaid。
+- 新专题放在 `content/docs/`，中文使用 `TOPIC_NAME.zh-CN.md`，开头说明用途与读者。
 
 - [统一入口与执行前审批](./A2A_INGRESS_APPROVALS.zh-CN.md)
