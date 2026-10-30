@@ -23,7 +23,7 @@
     面向系统契约组织内容。例如，[原生 Pi SDK 运行时](./AGENT_RUNTIMES.zh-CN.md)解释不可变修订、会话工作卷与恢复边界；源码链接可以指向应用仓库，不复制另一份实现说明。
   </Tab>
   <Tab>
-    面向集成契约组织内容。[Agent Control MCP](./AGENT_CONTROL_MCP.zh-CN.md)记录鉴权与工具边界；交互式 OpenAPI 参考是固定开发快照，发送请求前必须选择目标服务器，不能把本站快照当成线上契约。
+    面向集成契约组织内容。[Agent Control MCP](./AGENT_CONTROL_MCP.zh-CN.md)记录鉴权与工具边界；本站只保留协议与接入文档，实际接口参考请核对目标实例的 `/docs-api` 与部署版本。
   </Tab>
 </Tabs>
 
@@ -92,6 +92,12 @@ pnpm dev
 ```
 
 该命令只启动文档站开发服务，不启动主应用、数据库或业务任务。静态 Pages 的部署前缀是 `/toolplane-docs`，正文不应硬编码开发服务器地址。
+
+## 复制与打开文章
+
+正文页标题下提供官方 **Copy Markdown** 与 **Open** 操作。Copy Markdown 复制当前文章编译后的 Markdown/MDX 内容；Open 可查看 Markdown、打开 GitHub 源文件，或在 ChatGPT、Claude、Cursor 等外部服务中引用文章。外部服务仅在点击对应链接后打开，不自动发送请求。
+
+Markdown 地址为 `/toolplane-docs/markdown/{语言}/{分类}/{主题路径}.md`，随静态构建从同一份公开正文生成，保留标题、代码和解析后的文档链接；MDX 文档也会保留组件标签与 Mermaid 定义。目录和分类概览没有独立正文，不显示这两个操作。
 
 ## 继续阅读
 

@@ -7,7 +7,7 @@ const root = path.resolve(fileURLToPath(new URL("../out/", import.meta.url)));
 const base = "/toolplane-docs";
 const port = Number(process.env.PORT || 3108);
 const host = process.env.HOST || "127.0.0.1";
-const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8", ".yml": "text/plain; charset=utf-8" };
+const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8", ".yml": "text/plain; charset=utf-8" };
 createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url || "/", `http://${host}:${port}`).pathname);

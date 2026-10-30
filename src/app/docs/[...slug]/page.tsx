@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DocsPage, DocsTitle, DocsDescription, DocsBody, EditOnGitHub } from "fumadocs-ui/layouts/docs/page";
+import { DocsPage, DocsTitle, DocsDescription, DocsBody, EditOnGitHub, MarkdownCopyButton, ViewOptionsPopover } from "fumadocs-ui/layouts/docs/page";
 import { Card, Cards } from "fumadocs-ui/components/card";
 import { Callout } from "fumadocs-ui/components/callout";
 import { getDocs } from "@/lib/docs";
 import { DocumentContent } from "@/components/document-content";
-import { DOCS_REPO, APP_URL } from "@/lib/site";
+import { DOCS_REPO, APP_URL, SITE_URL, sitePath } from "@/lib/site";
 import provenance from "../../../../migration-manifest.json";
 
 const categories = {
@@ -51,9 +51,14 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const doc = docs.find((candidate) => candidate.slug.join("/") === slug.join("/"));
   if (!doc) notFound();
   const snapshot = ["README.md", "CHANGELOG.md"].includes(doc.file);
+  const markdownPath = `/markdown/${doc.slug.join("/")}.md`;
   return <DocsPage toc={doc.toc} tableOfContent={{ enabled: true }} tableOfContentPopover={{ enabled: true }}>
     <DocsTitle>{doc.title}</DocsTitle>
     <DocsDescription>{zh ? "开发版本文档 · 请核对部署代码和功能支持边界。" : "Development documentation · Check your deployed code and supported capabilities."}</DocsDescription>
+    <div className="flex flex-wrap items-center gap-2 border-b pb-6">
+      <MarkdownCopyButton markdownUrl={sitePath(markdownPath)} />
+      <ViewOptionsPopover markdownUrl={sitePath(markdownPath)} githubUrl={`${DOCS_REPO}/blob/main/content/${doc.file}`} pageUrl={`${SITE_URL}${markdownPath}`} />
+    </div>
     <DocsBody>
       <Callout title={zh ? "版本与来源" : "Version and source"}>
         {zh ? "当前开发文档不等同于线上稳定版承诺。迁入正文保留原文；旧站点维护说明以本站仓库 README 为准。" : "These development documents are not a stable-release promise. Imported prose is preserved; this repository README supersedes old embedded-site authoring instructions."}
