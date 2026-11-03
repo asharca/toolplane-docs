@@ -3,10 +3,9 @@
 
 ## 频道管理
 
-工作区 Settings > Channels 页面（`/app/[workspace]/settings/channels`）和每个 Agent 的
-Channels 标签页共用同一套平台侧栏、实例行、凭据编辑器、连接开关、删除确认和实时日志
-弹窗。交互参考 Cherry Studio 的 `ChannelsSettings` 功能。Feishu、Telegram、QQ、WeChat、
-Discord、Slack 按相同顺序展示。
+每个 Agent 设置中的 Channels 标签页提供平台侧栏、实例行、凭据编辑器、连接开关、删除确认、运行日志及对话记录。工作区设置不再重复提供频道入口。Feishu、Telegram、QQ、WeChat、Discord、Slack 按相同顺序展示。
+
+添加频道会自动绑定当前管理账户作为执行身份，无需到 A2A 接入页面另行授权，也不要求开启 A2A 入站协作。微信绑定 Agent 后，扫码确认并保存凭据即自动启动；直接提供完整凭据添加微信时也自动启动。原有缺少执行身份的连接，在管理员重新启动、配对或保存配置时自动补齐身份，不会擅自使用工作区所有者。
 
 频道可以先创建为未绑定的草稿。绑定 Agent 之后才能启动 runner。删除 Agent 不会连带删除
 频道，频道可以重新绑定；删除频道会停止 runner，但保留会话历史。服务器启动时会恢复之
@@ -15,7 +14,7 @@ ToolPlane 保留自己的工作区鉴权和 Agent 沙箱执行模型，不引入
 IPC 或宿主机目录访问。
 
 管理接口为 `GET/POST /api/v1/workspaces/[slug]/agent-channels`，支持账户 Bearer token
-或会话 Cookie。POST 动作包括 `create`、`update`、`delete`、`start`、`stop`、`pair`、
+或会话 Cookie；所有 POST 管理动作仅允许工作区所有者或管理员。POST 动作包括 `create`、`update`、`delete`、`start`、`stop`、`pair`、
 `check`、`apply`、`move`。`GET ?logs=[connectionId]` 在工作区鉴权后返回内存中最近 200
 行日志。已知密钥会脱敏，任何管理响应都不包含 runner 或入站 token。非密钥配置值可读可
 清空。密钥字段留空表示保留已加密存储的原值。编辑运行中的连接会将其重启。
@@ -28,6 +27,12 @@ IPC 或宿主机目录访问。
 `/app/[workspace]/work?agent=[agentId]&c=[conversationId]`，复用现有 Work 界面及其侧
 栏、搜索和沙箱工具。`/app/[workspace]/chat` 保留给助手使用；旧的 Agent chat 路由重定
 向到 Work。频道历史在控制台中为只读，每五秒刷新。迁移后旧历史仍归原 Agent。
+
+频道消息直接进入通用 Agent 执行核心，普通执行不依赖 A2A 开关。上游正常收到实际结果，而不是逐条“已接受”回执；执行失败会在会话保存安全的失败消息并回传提示，不自动重放。Pi 扩展需要原生确认、选择或文本输入时，频道发送会话 Work 链接；绑定的执行账户登录后回应原生对话，不需要进入 A2A 设置。平台不另加逐次工具审批。交互通知发送失败不会中断正在执行的任务；最终回复投递失败不会制造第二条执行失败回复。会话执行状态、原生 dialog 和 todo 投影通过 `/api/v1/agents/{agentId}/conversations/{conversationId}/execution` 读取，POST 接受原生 `extension_ui_response`；只接受同源登录态及该执行的所属账户，并拒绝过期或重复回答。持久化回复不代表上游已确认投递，不承诺跨重启 exactly-once。
+
+在智能体设置 → 频道中，连接行的“对话记录”按钮打开只读记录窗口，按时间展示该连接当前所属智能体的各个频道会话及用户消息、智能体回复。窗口可见时每秒增量读取已持久化的新消息，返回页面时立即同步；无需手动刷新。首次读取最近 100 条，可继续加载更早记录；阅读旧记录时新消息不会强制滚到底部。它与“日志”按钮的连接运行诊断不同，不提供发送、编辑、重试或删除消息操作，也不给模型增加历史查询权限。
+
+读取接口为 `GET /api/v1/workspaces/[slug]/agent-channels?history=[connectionId]`，可用 `after=[messageId]` 增量读取或 `before=[messageId]` 向前分页。每页最多 100 条，仅投影用户／智能体消息的文本，不返回工具内部数据或频道凭据。每次请求检查工作区成员身份、连接归属及游标所属频道；迁移后只读取连接当前 Agent 的记录，原 Agent 历史仍保留在其已有会话中。
 
 飞书/Lark 注册使用扫码设备流程，自动保存返回的 App ID 和 App Secret。微信使用现有的
 iLink 配对流程。轮询在完成、过期、失败或关闭编辑器时停止。主要凭据字段与参考实现一致；
@@ -105,7 +110,7 @@ c03519c028cfe25e32060ad7dcdeea531f22fd46。见 `src/lib/agents/channels/NOTICE` 
 沙箱。未分配的沙箱可以接受草稿配置，但在分配 Agent 前不能启动回复。托管公网端点沙箱
 除外。
 
-工作区列表仍可用于管理所有频道，包括未分配的草稿。`GET ?sandboxId=...` 只返回该沙箱
+工作区级管理 API 保留，但工作区设置不再提供全频道列表入口。`GET ?sandboxId=...` 只返回该沙箱
 的频道。`POST { action: "move", connectionId, sandboxId }` 把频道移动到同一工作区的
 另一个沙箱。移动前先停止旧适配器并中止进行中的轮次再重新绑定。凭据、配对状态、连接
 ID 和入站 token 保持不变，因此迁移不需要重新扫码。活跃频道会对目标 Agent 重启。没有

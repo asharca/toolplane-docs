@@ -81,7 +81,7 @@ pnpm dev
 
 ## 使用入口
 
-侧栏“插件中心”展开为浏览插件包、工作区资源、更新和 GitHub 来源；独立 Skill/MCP 入口负责工作区管理。工作区 owner/admin 登记 GitHub 仓库并同步 schemaVersion 2 的 `registry.json`，内容与整包版本通过 GitHub PR 管理；初始官方仓库为 [`asharca/toolplane-plugins`](https://github.com/asharca/toolplane-plugins)。安装时选择包内成员，新增成员不会在更新时默认勾选；同步、安装和更新均不执行资源、不自动授权，也不改变已有会话版本。客户端另行注册并授权，旧 Toolkit 转换不继承执行权限。外部 AI 客户端可从 **Agents → Connect AI** 获取 Agent Control MCP 配置。仓库协议、升级顺序、私有来源和签名 Webhook 见[资源同步操作](docs/RUNTIME_OPERATIONS.zh-CN.md#github-插件中心)。
+侧栏“插件中心”提供发现、已添加（有更新徽标）和来源三个页签，插件统一为 Pi package。部署者配置全局只读官方来源，默认 [`asharca/toolplane-plugins`](https://github.com/asharca/toolplane-plugins)；工作区 owner/admin 可另加公开 GitHub 仓库或使用加密 PAT 的私有仓库。仓库使用 v3 `registry.json` 或根目录单插件 `package.json`。Webhook、初次登记和手动操作触发同步，不轮询或发通知；管理员手动更新工作区安装后 Agent 自动跟随，新增 MCP 工具或代码变化需审核，已有会话快照不变。独立资源/Agent 市场、复合包、客户端登记和安装器已移除。外部 AI 客户端仍可从 **Agents → Connect AI** 获取 Agent Control MCP 配置，这不是插件安装。格式、环境变量、权限和安全下架见[插件中心操作](docs/RUNTIME_OPERATIONS.zh-CN.md#github-插件中心)。
 
 设备连接请使用沙箱页面生成的 Connector 命令；支持范围、系统要求及屏幕访问方式见[沙箱与连接器](docs/SANDBOXES.zh-CN.md)。连接器以本地用户权限运行，不等同于隔离容器。
 

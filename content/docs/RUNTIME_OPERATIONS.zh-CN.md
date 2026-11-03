@@ -1,7 +1,7 @@
 # 运行时运维与架构升级
 
 
-本指南面向单所有者 ToolPlane 部署的运维人员，说明运行时恢复、经审阅的 Pi 能力、限定范围的客户端登记与只读历史存储；不引入 active-active 执行，也不构成生产迁移授权。
+本指南面向单所有者 ToolPlane 部署的运维人员，说明运行时恢复、GitHub 插件来源、经审阅的 Pi 能力与只读历史存储；不引入 active-active 执行，也不构成生产迁移授权。
 
 ## 升级顺序
 
@@ -9,11 +9,13 @@
 2. 停止旧应用，确认其子进程和外部复制、导入、删除操作已结束。不要让新旧实例同时操作同一运行域。
 3. 审阅目标版本对应的仓库迁移，仅在明确核实的目标数据库通过现有部署 migrator 应用，然后生成匹配的 Prisma client 并构建应用。保留的消息、文件和审计/来源记录不是可随意清除的迁移数据。
 4. 使用 `pnpm start` 或生产镜像启动一个应用进程，等待 `/api/v1/readiness` 返回 HTTP 200，再接收运行时流量。`/api/v1/health` 只表示存活，不证明恢复完成。
-5. 受控切换前排空全部旧运行时活动任务。Toolkit 可转换内容冻结为私有包，撤销旧客户端凭据，客户端须按明确选择的版本与范围重新登记；不自动重发公开版本，不恢复旧执行。非删除范围内的历史消息和文件保留只读；转换产生重新授权的全新 Pi 草稿，不能把旧状态冒充可恢复会话。
+5. 受控切换前排空全部旧运行时活动任务。撤销退休的 Toolkit/插件客户端凭据，不再登记外部插件客户端或恢复旧执行。非删除范围内的历史消息和文件保留只读；历史转换产生重新授权的全新 Pi 草稿，不能把旧状态冒充可恢复会话。
 
 新操作运行时不要只回退应用程序。先停止所有者，再采用验证过的数据库/卷恢复或向前修复方案。生产备份和凭据不能进入测试产物。
 
 移除旧 managed/RPC 运行时的迁移 `20261026120000_remove_hermes_runtime` 会删除对应 Agent 及其级联历史、专用上传预留与会话字段；执行前须备份并在独立数据库验证。它不删除通用 WorkspaceAttachment、消息渠道配置、非删除范围内的历史、AgentEndpointRuntime 修订清单或公共分配外键。该删除不能只靠回退应用恢复；本说明不是生产或共享数据库迁移授权。
+
+侧栏“系统更新”向所有已登录用户展示当前版本、目标 Release 版本、配置的 GitHub 仓库链接和可滚动阅读的更新日志（来自该 Release 的 Markdown 发布说明）。普通用户可打开面板阅读版本和 Changelog，但不显示检查更新、安装按钮或安装状态；只有平台管理员显示操作入口，安装接口也独立校验管理员身份。即使未启用在线更新或未配置可写运行目录，版本与发布说明仍可阅读；安装仍受原有运行目录、发布制品和运行时保护约束。发布信息不可用时保留当前版本与仓库入口，不伪造更新日志。
 
 在线发布更新必须使用受管生产启动器。下载校验完成后，更新器先排空当前 runtime owner，**确认干净退出后才替换任何运行文件**，确保停机阶段的动态导入仍来自旧版本。缺少停机入口或排空失败时保留旧文件并报告失败；成功替换后发送 SIGTERM，由启动器完成退出，不直接调用 `process.exit()`。排空失败后的运行时保持阻断，须人工核对恢复，不能自动确认 dirty 标记。
 
@@ -82,188 +84,101 @@ Docker MCP 的环境值只通过运行时 stdin 引导传入，不使用 Docker 
 
 ## GitHub 插件中心
 
-插件中心只接受配置过的 GitHub 仓库索引，不接受本地 ZIP/目录上传、手工内容发布或未收录 npm 包的即时导入。工作区私有 Skill 编辑、自定义 MCP 配置、聊天与 Work 附件不是目录发布，不在此次移除范围内。已有不可变版本保持真实来源和 checksum，不伪造 GitHub 历史，也不自动更改 Agent/会话 pins。
+插件只有一种形态：**Pi package**。插件中心 `/app/{workspace}/plugins` 分为“发现”“已添加”“来源”；已添加页和入口显示“有更新”数量。独立 Skill/MCP 管理仍是工作区功能，不是插件发布渠道。独立资源市场、Agent/Assistant 模板市场、复合资源包、手工发布、npm/Git 即时导入、组装及外部客户端登记/安装器均已移除。公共站点只提供产品介绍，不再提供公共市场或 Agent 目录。
 
-工作区 owner/admin 在插件中心登记 `owner/repository`、分支和可见范围，初始官方仓库是 [`asharca/toolplane-plugins`](https://github.com/asharca/toolplane-plugins)。添加和手动同步会登记持久任务；只有运行时 owner 就绪时后台才处理。目录读取对成员开放，管理操作重新检查工作区角色。私有 GitHub 仓库只能登记为私有来源，凭据在数据库中加密，页面和制品只投影配置状态。
+插件详情分为“介绍”“更新日志”“资源”“插件配置”。介绍优先展示所选不可变版本中的根目录 README；缺失时明确提示，不生成虚构说明、不读取浮动分支替代旧版本。支持 README、README.md、README.markdown、README.txt（文件名不区分大小写），内联展示上限为 256 KiB。Markdown 使用安全渲染器；GitHub 来源的相对文档与图片链接固定到捕获提交。资源页只列实际包含的资源；安装、版本和运行时权限保留在侧栏。工作区私有导入与官方来源在列表上明确区分。
 
-仓库根 `registry.json` 示例：
+“更新日志”按新到旧连续展示全部已批准版本，向下滚动即可阅读历史，不必逐个切换版本。右侧版本列表定位到对应日志，也可通过详情页 `?view=changelog&version=<releaseId>#release-<releaseId>` 直达。每个版本优先显示已保存的发布说明；没有时从经过 checksum 校验的版本快照读取根目录日志，依次选择 `CHANGELOG.md`、`CHANGELOG.markdown`、`CHANGELOG.txt`、`CHANGELOG`，再选择同类 `HISTORY` 文件，文件名不区分大小写。单个日志文件只内联展示不超过 256 KiB 的有效 UTF-8 文本，不读取依赖目录或跟随符号链接。
+
+作者可使用 `## [1.2.3] - 2026-11-04` 或 `## v1.2.3` 等 ATX Markdown 标题，版本须与 `package.json` 的版本精确对应。平台提取该章节及其子标题内容，忽略代码块内的标题，不将 `Unreleased` 或其他版本误认为当前版本。未匹配到章节（包括 Setext 标题等其他格式）时展示所选快照的完整日志并明确标注；缺失、空白、超限或无效文件显示“未提供更新说明”，不以 README 代替。GitHub 源文件链接固定到捕获提交，不读取浮动分支或 GitHub Releases 的可变内容。
+
+新 GitHub 同步和工作区私有插件导入／追加版本只把精确匹配的章节写入 `MarketRelease.releaseNotes`，完整日志仍随制品接受密钥扫描。已有版本只读派生展示，不回填数据库、不改变 checksum 或 Agent／会话引用。没有日志的历史版本不会因上游后来补写而获得虚构的更新说明。
+
+### 官方来源与工作区来源
+
+部署者通过以下环境变量配置平台全局官方来源；所有工作区只读可见并标记“官方”，不是每个工作区分别登记：
+
+| 环境变量 | 默认值与用途 |
+| --- | --- |
+| `TOOLPLANE_OFFICIAL_PLUGIN_REPOSITORY` | `asharca/toolplane-plugins`；显式空字符串禁用官方来源 |
+| `TOOLPLANE_OFFICIAL_PLUGIN_BRANCH` | `main` |
+| `TOOLPLANE_OFFICIAL_PLUGIN_TOKEN` | 可选 GitHub 读取令牌；同步时从环境读取，不存入数据库 |
+| `TOOLPLANE_RESOURCE_REGISTRY_WEBHOOK_SECRET` | 可选高熵 Webhook 主密钥；自动同步需配置，不得直接交给 GitHub 或用户 |
+
+启动时创建或更新官方来源；从未同步或仓库/分支变化时排队同步。只有平台管理员能手动同步官方来源。官方仓库为 [`asharca/toolplane-plugins`](https://github.com/asharca/toolplane-plugins)。
+
+工作区 owner/admin 可在“来源”登记自己的 GitHub `owner/repository` 和分支：公开仓库无需令牌，私有仓库使用有读取权限的 PAT，加密存储且不回显。工作区来源的插件只对本工作区可见，即使仓库本身公开也不会成为全局来源。成员可查看，来源增删、凭据修改、同步及插件添加/更新/移除均重新检查工作区权限。不使用 GitHub App，不支持 GitLab、npm registry 或任意 HTTPS 目录来源。
+
+### 使用官方仓库与贡献插件
+
+插件中心提供“创建自己的市场”和“向官方贡献插件”入口。官方仓库为普通 GitHub 仓库，不启用模板功能。用户通过 Fork 创建自己的仓库，再运行 `node scripts/create-plugin.mjs my-review` 创建只读 Pi review prompt、README 和索引项；运行 `node scripts/validate-registry.mjs` 后提交到自己的仓库，并在平台“来源”登记和同步。Fork 不授予官方身份，也不扩大工作区可见性。
+
+向官方贡献时，在 Fork 的分支提交插件和索引项，再发起 Pull Request。维护者审核后合并；合并还需官方来源同步才能进入目录。贡献者不获得直接推送官方分支的权限。中文贡献规范见仓库的 `CONTRIBUTING.md`；CI 不执行插件代码。README 修改时也必须递增包版本。历史 OCR 内容没有声明许可证，仓库不替原作者授予许可。
+
+
+### v3 仓库格式
+
+多插件仓库在根目录提供 `registry.json`：
 
 ```json
 {
-  "schemaVersion": 2,
-  "packages": [
-    { "id": "ocrplane-cli", "version": "1.1.0", "path": "packages/ocrplane-cli" }
+  "schemaVersion": 3,
+  "plugins": [
+    { "id": "ocrplane-cli", "path": "plugins/ocrplane-cli" }
   ]
 }
 ```
 
-每个包目录提供 `resource.json`，一个成员也使用同一发布模型；成员只作为包内制品投影，不独立公开发布，也不另写一套 Agent 市场发布：
+`id` 满足 `^[a-z0-9][a-z0-9-]{0,63}$`，ID 和相对路径都唯一。禁止越界路径、软链接或把索引作为跨仓库引用。每个目录包含 Pi `package.json`，版本直接取其 SemVer `version`，不在索引另填版本：
 
 ```json
 {
-  "schemaVersion": 1,
-  "kind": "resource-package",
-  "listing": {
-    "slug": "ocrplane-cli",
-    "name": "OcrPlane CLI",
-    "summary": "文档 OCR 技能包",
-    "iconUrl": null,
-    "tags": ["ocr"],
-    "author": "asharca"
-  },
-  "members": [
-    { "id": "ocr", "kind": "skill", "path": "skills/ocrplane-cli" }
-  ]
+  "name": "@toolplane/ocrplane-cli",
+  "version": "2.0.0",
+  "description": "OCR and document understanding",
+  "keywords": ["pi-package", "ocr"],
+  "pi": { "skills": ["./skills"] }
 }
 ```
 
-成员支持 `skill`、`mcp`、`pi-package`、`agent`、`assistant`，最多 64 个。成员路径相对包目录，不可重叠或越界；每个成员沿用对应类型的 `resource.json` 校验，Skill 还包含 `SKILL.md`，Pi 包包含 `package.json` 和可加载文件。成员以稳定 ID 跟踪，改 ID 视为移除旧成员并新增成员，不依赖显示名称或排序。Agent 沿用可移植 graph 和真实私有草稿物化；Assistant 同样生成未授权草稿，首次启用仍检查模型和 MCP 工具需求。两者不继承凭据、运行状态或执行授权。
+该示例的技能位于 `plugins/ocrplane-cli/skills/ocrplane-cli/SKILL.md`。Pi 包也可包含 prompts、extensions 和 themes；需要构建的扩展应提交可加载产物。可选 `toolplane.plugin.json` 提供 `{ "name": "OcrPlane CLI", "summary": "文档 OCR 技能", "tags": ["ocr"] }`，另可提供 `iconUrl`；缺省使用 package.json 的 `displayName`、`description`、`keywords`。不再使用 `resource.json` 或包内独立成员的发布模型。
 
-插件中心侧栏展开为浏览插件包、工作区资源、更新、GitHub 来源及有权限时的发布管理；独立 Skill/MCP 管理入口保留。安装必须明确选择成员并确认需求，根安装及所选成员的数据库变更原子提交。安装不会启动 MCP、执行 Agent、替用户授权模型或注入凭据；缺少配置的成员在自己的管理页完成设置。
+官方仓库要求每个插件根目录提供非空 README.md，说明用法、运行时与外部依赖、所需工具和网络、配置键（不得放密钥值）、限制及许可。该作者侧要求不追溯修改既有发布版本；本机导入包也可能本来没有 README。GitHub 目录目前捕获 Pi 包，OMP 私有导入不因此自动转换为可公开分发的 Pi 包。
 
-更新展示新增、变更、移除成员，新增成员默认不选。成员实际内容未变时复用原安装对象；变更成员创建新复制，不覆盖用户已修改的对象或既有修订。取消选择、索引移除和停止跟踪保留既有工作区对象及历史 pins，但不再允许通过已停止跟踪的子制品建立新市场绑定。仅 GitHub 提交/引用变化不视为成员内容变更；已有校验过的同字节源目录可复用 capture，成员保留实际 capture 的 SHA，包根仍记录本次 SHA。权限、工具、recipe、文件和依赖的变化仍须审阅。
+单插件仓库可以不提供 `registry.json`，直接在根目录提供 Pi `package.json`；插件路径为空，ID 从包名 slug 化派生。同一 ID/版本不能对应不同 digest；任何内容修改都应增加版本。v2 索引明确报错 `registry.json v2 is no longer supported; migrate to v3`，不会自动兼容解析。
 
-非远程 MCP 描述必须在 `mcp.toolCatalog` 保存已审查的真实 `tools/list` 响应中的 `result.tools` 数组；每项需有唯一名称和对象形式的 `inputSchema`，可保留 description、outputSchema 与 annotations。仅在真实发现结果为空时使用空数组。同步直接严格校验原始快照，缺失或畸形时显示 `resource_mcp_tool_catalog_invalid` 并保留整个上一版目录，不发布已知无法安装的版本。远程 Connector 沿用连接后的真实发现协议；同步不运行 MCP，也不会因此授予工具权限。
+### 同步与更新提示
 
-索引以稳定 `id` 标识包，整包统一使用语义版本。可用 `source: { repository, commit, path }` 指向外部仓库的完整 40 位提交；跨仓库引用只允许公开内容，不把主仓库令牌转发给其他仓库。私有资源应直接登记其所属仓库及只读令牌。
+登记来源会初次同步，也可点击“立即同步”。后台只处理已排队任务，不轮询上游、不发送更新通知。同步把分支解析为固定 commit，从该 commit 捕获 Pi 制品，执行路径/内容校验与 secret scan 后自动批准，不走发布前人工审核队列。同版本不同内容拒绝索引，失败保留上一成功目录；仓库不可达不等于插件已移除。同步不在应用宿主机执行仓库脚本，不安装 CLI、不注入凭据，也不授予 Agent 执行权限。
 
-同步先解析分支为固定 SHA，再从同一 SHA 读取索引与内容并校验 Git blob；公开内容使用无凭据的固定 raw URL，私有内容通过 GitHub API 读取。禁止下载重定向、越界路径、软链接/submodule 与截断 tree；单文件最多 4 MiB、目录 32 MiB、一次同步 64 MiB，索引最多 200 项。同版本内容变化拒绝发布，未变资源复用原不可变版本。所有准备完成后事务切换可见目录；失败保留上一版，旧任务不能覆盖新一代结果。仓库不可达不等于资源被移除。
+自动同步使用 GitHub JSON push Webhook，端点保持 `/api/v1/resource-registries/{registryId}/webhook`。取得该来源的 Webhook 配置后，将返回的派生 Secret 填入 GitHub，**不要填写服务端主密钥**。只有匹配登记仓库/分支且通过签名校验的 push 才入队；delivery ID 去重，HTTP 202 仅表示已排队。没有 Webhook 仍可手动同步，不接受未签名请求降级。轮换主密钥后需重新配置各来源 Webhook。
 
-自动同步需部署者显式设置高熵 `TOOLPLANE_RESOURCE_REGISTRY_WEBHOOK_SECRET`，它仅是服务端主密钥，绝不能直接填入 GitHub 或下发用户。工作区 owner/admin 点击“获取 Webhook 配置”后，平台按工作区与仓库 ID 派生该仓库独立的签名密钥；将返回的端点 `/api/v1/resource-registries/{registryId}/webhook` 和派生 Secret 配置为 GitHub JSON push Webhook。一个工作区拿到自己的密钥也不能为其他仓库伪造事件。主密钥未配置返回 503，签名错误返回 401，载荷上限 1 MiB；仅匹配已登记仓库和分支的有效 push 排队。GitHub delivery ID 去重；HTTP 202 只代表已排队，不代表发布完成。无 Webhook 时仍可手动同步，不接受未签名请求降级。轮换主密钥后必须重新配置各仓库 Webhook。
+同步发现新的已批准版本后，插件显示“有更新”。工作区 owner/admin 明确选择目标版本并审阅需要的 MCP 绑定后更新工作区安装；成员不能替工作区升级。添加只建立工作区安装，不执行插件。索引删除 ID 后条目标记 `removed`，退出发现，但已有安装继续使用固定制品。
 
-移除索引条目或停用来源只撤回目录可发现性，不删除已被引用的制品、会话或工作卷；实时权限及危险版本撤销仍生效。索引撤回使用 draft，管理员安全下架使用 disabled；任何同步或新版本均不得覆盖管理员下架。GitHub PR/CI 审核不是执行授权：用户安装后仍须审阅 receipt、CAS 与准确版本，并明确应用到 Agent。同步服务不在应用宿主机执行仓库脚本。
+### Agent 自动跟随与审核
 
-升级顺序：备份并应用 `20261029000000_composite_resource_packages`、生成 Prisma 客户端并按单所有者流程重启；将 GitHub 索引通过独立 PR 更新为 schemaVersion 2 后再同步。v1 索引明确报升级协议错误，保留上一成功目录，不自动解析成另一条新发布通道。首次同步新包时旧 listing/release/install 和会话 pins 保留；原独立条目退出新发现，历史管理入口仍可使用。不要原地把旧 Pi listing 改成包类型，否则会破坏旧制品校验。正式合并前可登记协议 PR 分支作私有预览，不能宣称仓库 main 已完成切换。
+Agent 设置从**工作区已添加的插件**选择，选择时绑定工作区当前版本。工作区管理员更新插件后，已选择该插件的 Agent 自动跟随：成功时发布新的不可变 Agent 修订，新会话使用新修订，既有会话、Conversation、Work 和 A2A 固定快照不变。
 
-## 冻结的 Pi 扩展包
+当新版本增加 MCP 需求/工具，或代码指纹发生变化时，自动跟随暂停为“需审核”，保留目标版本，owner/admin 审阅差异并批准后才应用。指纹对 MCP key/工具排序；代码 digest 包括声明的 skills/prompts/themes 路径之外的文件及去掉 `version` 字段后的根 package.json，因此扩展、依赖或脚本变化需审核，单纯版本号变化不触发代码审核，纯 MCP 删除不扩权。
 
-`pi-package` 是不可变 Pi 资源与可选扩展代码的制品。所有新执行统一走固定 Pi SDK；
-其他运行时记录仅保留只读历史/文件，不提供执行兼容。创建新的 Pi 对象并明确审阅和
-重新授权能力。只按上述受控升级流程应用经审阅的版本迁移，不能仅为启用包而迁移
-正在运行的共享运行时。
+状态为“已同步”“待同步”“需审核”“失败”。Agent 正忙时进入待同步，由后台重试；请求用户失去 owner/admin 权限后不得继续代其升级。失败显示错误，不能假称新修订已生效。审核执行代码意味着接受其在 Agent 沙箱内的 Node、文件和网络副作用，工具审批不是任意代码隔离边界。包的 MCP 工具仍须满足固定修订授权和当前连接允许列表，快照不会恢复已撤销权限。
 
-管理员显式构建可信捕获镜像；发布请求不会隐式构建：
+移除工作区插件会解绑 Agent，并发布仅收窄该插件能力的新默认修订，不顺带应用其他草稿改动；保留既有会话引用、制品及共享 MCP。平台管理员可**下架条目**（`withdrawn`）或**撤销危险版本**（`revoked`）；同步不能覆盖安全下架。普通移除/下架不等于安全撤销，危险版本的实时撤销约束仍应用于固定引用。
+
+### 部署与冻结制品
+
+备份后应用 `20261030000000_plugin_center`，生成 Prisma 客户端，按本文单所有者流程重启，并将来源仓库改为 v3 后同步。旧复合包中的 Pi 安装迁移为独立插件；非 Pi 市场和外部客户端分发不再提供兼容入口。历史会话保留准确制品，不伪造来源或重新捕获覆盖 checksum。
+
+管理员显式构建可信捕获镜像；同步不会隐式构建：
 
 ```bash
 docker build --target pi-package-capture -t toolplane-pi-package-capture:0.87.1 .
 ```
 
-捕获要求运行时 owner 已就绪，同一 owner 仅允许一次操作（`capture_busy`）。
-非 root 容器无外网、无宿主文件挂载；有界 TLS CONNECT broker 拒绝私网、混合
-DNS 和重定向后的私网地址。公开或明确配置凭据的 npm/Git 生产依赖一起冻结，不执行扩展 factory、
-生命周期脚本、Git hooks 或 pnpmfile。需要构建的包须提供可加载产物；超过
-16 MiB 的文件明确拒绝，不跳过。
-插件中心中的 Pi 包仅从上述固定 GitHub 目录进入隔离捕获，记录仓库、完整提交和目录来源；同资源同版本的内容不得变化。内部受控归档只是捕获传输格式，不提供 ZIP 上传或 npm/Git 直接发布 action。既有冻结制品、客户端分发和受控 Toolkit 转换仍可复用内部捕获/组装能力，不能借此绕过仓库索引新增公开资源。可信捕获脚本更新后须重新构建捕获镜像。
+Pi 捕获要求 runtime owner 已就绪，使用隔离非 root 容器；生产依赖随包冻结，不执行扩展 factory、生命周期脚本、Git hooks 或 pnpmfile。内部归档仅是传输格式，不是 ZIP 上传/发布入口。更新捕获脚本后需重建镜像。SDK 固定 0.87.1，要求 Linux、Node 26，原生快照须匹配执行架构；执行 turn 时不安装插件依赖。
 
-审核重新验证路径、链接、解码后的 secret scan、文件 hash 和整个 release checksum。
-安装只产生 ready `MarketInstall`，不执行代码。工作区升级同时更新两个 install
-版本指针，但 Agent 保留明确启用的 release；须在 task、Work 和 lease 结束后
-显式应用版本。卸载在同一事务为受影响的活跃 Agent 发布“当前已应用修订仅移除该包”
-的新默认，然后移除草稿绑定，不应用其他未审阅草稿改动。修订 CAS/校验失败则整次卸载
-回滚；并发重复卸载不重复发布修订。新会话使用收窄后的默认，既有会话修订、被引用
-制品和共享 MCP 部署保持不变。这种仅缩减能力的修订无需让无关的已撤销授权重新有效；
-执行时仍强制实时限制。公共详情只投影小摘要、保留原 checksum，不返回 base64 或依赖文件。
-危险 release 撤销立即阻止包含保留固定引用在内的新执行；
-普通卸载/撤回 listing 不撤销同一 Agent 修订已保留的准确获批制品，仍复核实时 MCP、
-provider 和凭据授权。包的 MCP 工具须同时处于固定修订授权与当前 Agent 连接的显式
-允许列表；删除连接或移除必要工具会拒绝恢复，不能从包或会话文件恢复权限。
-危险 release 应通过 owner/admin 鉴权的
-`POST /api/v1/pi-packages/releases/{releaseId}/revoke` 提交
-`{"workspace":"<工作区slug>","reason":"<经审阅的原因>"}`，不能以普通撤回/卸载代替。
-该操作记录明确 `revoked` 状态、撤销依赖的客户端登记，同时保留可读 release/修订历史。
-批准意味着接受扩展在 Agent 沙箱内的任意 Node、文件和网络副作用，工具审批并非
-任意代码隔离边界。
+Conversation、A2A context 和 Work 固定不可变修订及包制品，更新不重写已有引用。无法证明准确引用时返回 `AGENT_REVISION_UNRESOLVED`，保留历史只读；持久会话丢失返回 `PI_SDK_SESSION_MISSING`，需新建会话，不能重放历史伪造恢复。文件/链接篡改以 `PI_PACKAGE_CHECKSUM_MISMATCH` 拒绝执行，扩展加载失败为 `PI_EXTENSION_LOAD_FAILED`。命令保留大小写及 `:1` 冲突后缀；Web 支持原生 RPC UI 对话及文本投影，不转译任意 TUI 自定义组件。
 
-创建新的 **Pi Agent**，在草稿选择已安装包，再执行**保存草稿 → Prepare → 审阅 → Apply**。
-没有另一种 Pi SDK runtime 选择器，也不回退旧 Harness 执行。草稿修改不启用包、不改动
-已有会话。SDK 固定 0.87.1，要求 Linux、Node 26；捕获包架构须匹配 Docker daemon。
-TP 组装包声明 `any/any`，但不放宽 SDK/Node 要求。可信运行时安装使用
-`pnpm add --save-prod`，兼容 pnpm 10/12；执行 turn 时不安装市场包依赖。
-
-SDK 使用官方 JSONL，不提供 Harness 检查点恢复。Conversation、A2A context 和 Work
-固定不可变 Agent 修订及准确包制品；工作区更新不改变这些引用。发布/回滚创建新的
-默认修订，不改写已有会话。引导安装创建工作区资源，并在明确 Review + Apply 确认后，
-以所选 Agent 当前已应用修订为基线，仅合入本次包和 MCP 授权；其他草稿不应用，
-既有会话固定引用不变。目标没有已应用修订时，须先从 Agent 页 Prepare、审阅并 Apply，
-向导在任何安装副作用前拒绝继续。修订 CAS 失败保留原默认。
-同一鉴权操作创建且尚未共享的 MCP，可在部分失败后原地修正配置重试。预存/共享连接
-不会被静默重配：到实际连接设置审阅受影响对象后修改，或新建连接。仍须确认执行代码
-和 MCP 权限。
-后续步骤失败时返回实际已完成的 deployment/install ID 和部分结果，不假称回滚或启用。
-版本更新可明确携带已审阅的目标 `mcpBindings` 原子配置；缺少新工具权限返回
-`pi_package_mcp_binding_required`，固定引用不能恢复实时撤销的授权。
-切换前，账号鉴权客户端可 GET
-`/api/v1/workspaces/{slug}/market/installs/{installId}/diff?targetReleaseId={id}&page=1&pageSize=50`。
-仅比较同一条目已批准的 Pi/Skill/MCP 版本，重新校验两端制品 checksum 和当前工作区权限。
-响应只含分页变更路径（每页最多 100 条）、权限/工具与环境变量名称、传输和运行时兼容性、
-配置变化标记，不返回文件字节、recipe 参数或凭据。
-Work 在受理时固定引用，不等待独立卷分配。卸载移除
-默认绑定但保留被引用制品和共享 MCP；发布审批与工作区/Agent/MCP 当前权限仍须复核，
-不会通过快照保留已撤销权限。状态不匹配仍以 `PI_SDK_PACKAGE_SET_CHANGED` 拒绝执行。
-持久会话文件缺失或未落盘宿主丢失返回 `PI_SDK_SESSION_MISSING`，须新建会话或 Work，
-不重放历史，旧记录仍可读。
-旧版或未解决的修订/包状态以 `AGENT_REVISION_UNRESOLVED` 拒绝执行，不从当前默认值
-猜测修订、不覆盖 checksum，也不重放历史伪造恢复。无法证明准确不可变引用时保留
-历史状态只读，创建新的、明确授权的 Pi 对象/会话。
-文件或链接篡改返回 `PI_PACKAGE_CHECKSUM_MISMATCH`，扩展加载失败返回
-`PI_EXTENSION_LOAD_FAILED`。命令保留大小写及 `:1` 等冲突后缀，纯命令给出完成回执；
-终端交互 UI 不映射到 Web。
-
-### 插件源、组装与外部安装
-
-**市场 → Pi 扩展**默认展示可搜索、分页的完整 [Pi 官方目录](https://pi.dev/packages)。
-成员选择精确版本后免人工审核安装；服务端验证实时目录成员身份和公共 npm 的版本、integrity，
-再捕获并校验不可变制品。release 记录 `reviewPolicy: 'official-directory'`，不记录人工审核者；
-这不代表安全背书或 Web 兼容。安装不执行代码，不改变 Agent 固定版本。
-官方目录交互式安装同样要求 `confirmExecutableCode=on`；仅展示执行风险说明，不等于用户已授权接收可执行包。
-公开的自建来源和组装包仍须人工审核。私有 npm/Git/ZIP 或组装包可由 owner/admin
-明确勾选 `confirmExecutableCode=on`，授权仅在本工作区使用可执行代码；release 记录
-`reviewPolicy: 'workspace-owner-trust'` 与授权人/时间，不冒充人工公共审核或官方目录批准。
-私有包不进入公共发现，其他工作区不能安装或下载。含工作区信任历史的 listing 不可直接
-改为公开；通过同一发布 action 提交新公开 listing，使用 `sourceType=release` 和
-`targetReleaseId=<私有release-id>` 复用冻结制品。服务端验证所属工作区并重新校验快照，
-进入人工审核，无须再次抓取上游。新公开制品移除私有来源和工作区 ID，不公开私有历史。
-owner/admin 在**插件中心 → 来源**（`/app/{workspace}/market/sources`）管理 HTTPS
-目录、npm registry 或 Git 来源；凭据加密保存且不回显，只发送到配置的 authority/path。
-目录凭据不传播到发现的包地址。支持公网 HTTPS 上的私有仓库；LAN、回环、link-local、
-混合 DNS 和重定向仍被阻止。捕获凭据通过可信 stdin 传入，不进入 argv 或 Docker 环境。
-
-自建目录响应 `GET <配置地址>?query=<搜索词>&page=<从1开始页码>`，返回
-`{schemaVersion:1,entries:[{name,source,description?,version?}],hasMore:boolean}`；
-最多 50 项、2 MiB，`source` 是支持的 npm/Git 来源。发现目录时不执行包代码。
-
-**插件中心 → 组装**（`/app/{workspace}/market/compose`）冻结所选 Skill 文件，为明确
-选中的 MCP 工具生成真实 Pi 扩展。包默认私有，公开须明确选择并另行审核。MCP 需求
-只含逻辑 key/工具名，不带凭据或发布者 deployment ID。其他工作区绑定自己的连接；
-在目标 Agent 草稿审阅并 Apply 前，选择资源不会授予执行权限。纯 Skill/Prompt/Theme
-包不需要空扩展。提交前审阅冻结组装结果，输入变化须重新预览。来源导入和订阅来源
-重新捕获经由**插件中心 → 导入**，遵守同一预览/提交契约，不提供自动捕获即发布捷径。
-Toolkit 历史只读；转换是另行授权、排空后的 dry-run/apply 操作，不是编辑或执行产品；
-既有公开版本不会自动重发。
-
-获批包可下载确定性的 npm 兼容 tarball。发布到配置的 npm registry 需要 owner/admin
-权限和明确确认，不能覆盖既有版本，也不自动进入官方目录。
-
-**插件中心 → 客户端登记**统一使用既有 Pi 包机制，固定选择包 release 或独立 Skill/MCP
-release；登记本身不能作为组合产品再次发布。Pi 获取原生包资源；Claude Code、Codex、
-OpenCode 等外部客户端只获取支持的 Skill/MCP，不获取 Pi 扩展、提示词或主题。下载安装器
-和一次性私有配置，以 `chmod 600` 保护，执行
-`node pi-package-install.mjs install --config <私有配置.json>`；更新与卸载使用同一配置的
-`update`/`uninstall`。安装为系统用户全局范围，不是项目级；MCP 需要连接该 TP 实例。
-
-每项登记使用独立 hash、可撤销 Token 和固定的准确 release 选择；设备接口不接受个人
-或 Toolkit Token。账号更新要求所属用户、整数 `expectedConfigVersion` 和明确审阅新增权限。
-审核配置更新递增独立版本；普通认证只更新 `lastUsedAt`，不会使打开的审核表单过期。
-每次请求复核成员、release、deployment 权限和实时暴露工具；新增工具不自动扩权。
-更新拒绝本地修改文件和托管目录链接越界；卸载先取得自撤销确认，再删除未修改文件。
-页面撤销不声称删除本地文件；关联的活跃设备登记仍阻止卸载工作区安装。不要记录、
-提交或截图私有配置。
-
-runtime owner 每五分钟至多串行检查八个到期订阅，每个包至少间隔六小时，也支持手动
-检查。tag/range 和 Git 分支更新只提示；精确版本/commit 保持固定。检查不捕获、不安装、
-不发布、不改变 Agent/设备。同版本 integrity 变化视为异常。用户捕获并审核新 release 后，
-分别手动更新工作区和 Agent/设备，设备扩权须确认。TP 组装包从所选工作区资源显式重新
-发布，不在后台静默重建。
 
 ## 不可变 Pi SDK 修订
 
@@ -299,33 +214,35 @@ Control MCP 只创建原生 `pi-sdk` 草稿；创建不等于执行授权，须�
 使用自己的修订，并与实时 provider、凭据、包、MCP 和方向性协作权限取交集。固定引用
 缺失、不匹配或历史状态未解决时拒绝执行，不能以 Agent 当前配置猜测恢复。
 
-### 单项 Skill 与 MCP 的审阅和应用
+### 单项 Skill 的审阅和应用；MCP 直接绑定
 
-单项 Enable 是审阅并发布，不是仅绑定草稿。先选择已有发布修订的原生 Agent，再通过
-`previewAgentResourceAction` 审阅完整 Skill 制品，或执行受控 MCP `tools/list` 握手。
-未发布目标以 `revisionPreparationRequired` 在探测、授权或安装前拒绝。检查不调用工具、
-不挂载 Agent 工作卷，也不要求共享 stdio 进程正在运行。
+单项 Skill Enable 是审阅并发布，不是仅绑定草稿。先选择已有发布修订的原生 Agent，再通过
+`previewAgentResourceAction` 审阅完整 Skill 制品。未发布目标以 `revisionPreparationRequired`
+拒绝。预览返回签名 `reviewReceipt`、`sourceChecksum` 及 15 分钟 `expiresAt`；
+`enableAgentResourceAction` 校验回执与 `expectedRevisionId` 后只将该项变更加入当前已应用配置。
 
-预览返回绑定用户、工作区、Agent、资源与当前修订的签名 `reviewReceipt`、`sourceChecksum`
-及 15 分钟 `expiresAt`；回执本身不是执行授权。MCP 必须明确选择 `allowedToolNames`，
-未提交不能推断为全部工具。`enableAgentResourceAction` 校验回执与 `expectedRevisionId`，
-重查源/definition/文件/发现回执及实时权限，经原生预检后只将该项已审阅变更加入当前已应用
-配置；不发布无关草稿、不改变已有会话固定引用。源变化或审阅过期须重新预览；失败同时回滚
-授权和默认修订，成功返回真实新 `revisionId`。
+MCP 不再走审阅回执：在 Agent 设置或 Assistant 编辑器中添加即可，绑定始终跟随部署工具目录。
+工具访问权限仅在 MCP 部署的 Tools 页选择，并统一作用于所有已连接的 Agent 与 Assistant。目录、暴露策略或连接配方变化时，系统为已应用该 MCP 的
+Agent/Assistant 自动发布只刷新 MCP 授权的新修订；已有会话保持原修订，用户可在会话内确认后原地
+更新到当前修订。详见[远程 MCP](./REMOTE_MCP_HTTP.zh-CN.md#协议校验与执行归属)。
 
 ## 原生会话与历史运行时边界
 
-原生宿主在初始化 SDK 会话、发起模型请求前先检查审批 broker 的 readiness。普通会话
-仅允许 `/api/v1/agent-runtime/sessions/approvals`，委派任务仅允许
-`/api/v1/agent-runtime/a2a/<task-id>/approvals`。两者都保持仅 HTTP(S)、禁止内嵌凭据/
-query/fragment、禁止重定向、有界响应及 runtime token 要求。readiness 拒绝会阻止模型
-执行，不能因此绕过审批或重放该 turn。
+平台逐次工具审批及 readiness 握手已移除，确认由已授权的原生 Pi 扩展发起。任务使用
+`/api/v1/agent-runtime/tasks/<task-id>/ui`，专属 Work 使用
+`/api/v1/agent-runtime/sessions/ui`。通道保持仅 HTTP(S)、禁止内嵌凭据/query/fragment、
+禁止重定向、有界响应与 runtime token 校验；每次读写重新验证当前授权与执行租约。
+原生 UI 不能扩大修订、MCP、沙箱或协作授权。
 
-每个会话按其固定环境懒创建独立持久沙箱，不读取 Agent 当前模板。原生 SDK 状态限定于
-`/workspace/.toolplane/runtimes/pi-sdk/agents/<agent-id>/`；本地 A2A 使用持久化的
-context ID。数据库管理身份、修订/沙箱绑定、任务回执和授权，原生会话文件管理 SDK
-对话状态。保留 context 必须重新打开原会话；状态丢失须排查或恢复卷，不能伪造历史
-或创建空会话冒充恢复。
+切换前排空旧任务并备份。应用 `20261102000000_pi_native_ui` 和
+`20261102010000_native_ui_work_cutover`，生成 Prisma 客户端并按单所有者流程重启。
+旧 `A2AToolApproval`、`WorkApproval` 表移入 `toolplane_archive` schema 保留证据，
+不作为新审批入口；旧 `waiting_approval` Work 标为失败，不自动执行或重放。
+数据库仅保存有界 Web 投影，原生会话文件仍是 todo 和上下文的权威来源。
+
+每个 Agent 按固定环境懒创建一个持久沙箱，会话在 `/workspace/conversations/` 下拥有独立目录；不同 Agent 不共享可写卷。同一 Agent 内目录分离不是原生 shell 的安全隔离。Pi／OMP 固定运行时安装按 Agent 复用，原生状态在会话目录的 `.toolplane/runtimes/<运行时>/agents/<agent-id>/` 下。数据库管理会话身份、修订、包固定引用、任务回执与授权；共享 sandboxId 不再唯一标识会话或插件快照。保留 context 必须重新打开原会话；状态丢失须排查或恢复卷，不伪造历史。
+
+共享沙箱切换须备份后应用 `20261103000000_agent_shared_sandbox`、`20261103010000_shared_sandbox_conversations`、`20261103020000_shared_sandbox_package_sets`，生成客户端并重启。旧卷在首次执行时校验后完整迁入会话目录，再原子移动 Conversation／Context／Work／PiSessionPackageSet 映射；原卷只读保留至 Agent 删除。原生 JSONL 只重定位 session 头与宿主路径，保留 OMP 标题前导记录及消息正文。不得把旧授权令牌复制成新执行凭据。
 
 同会话串行、原生/session-MCP 租约及原有 Agent/平台并发限制继续生效。停止和取消
 停止绑定进程及会话 MCP sidecar，不删除工作卷。本文其他章节的通用 owner、dirty-marker
@@ -335,7 +252,7 @@ context ID。数据库管理身份、修订/沙箱绑定、任务回执和授权
 不能因共享 deployment 停止就移除已授权的固定 MCP recipe；会话 broker 校验固定镜像／recipe
 与实时授权后懒启动隔离 sidecar，不借用共享 deployment 进程。
 
-在自己拥有且空闲的 Pi SDK 会话中发送 `/compact` 或 `/compact <自定义指令>`，
+上下文默认启用 Pi 原生自动压缩。在自己拥有且空闲的 Pi SDK 会话中发送 `/compact` 或 `/compact <自定义指令>`，
 将对同一保留会话执行原生 `session.compact()`。须等待原生命令结果持久化；绑定忙碌时
 拒绝另开 writer，失败不回退宿主摘要或 CLI 压缩。压缩须单独验证，下述通信 smoke
 不覆盖它。
@@ -349,7 +266,7 @@ context ID。数据库管理身份、修订/沙箱绑定、任务回执和授权
 扩大祖先批准的深度。续接纳入子任务结果前也须校验当前子任务权限；撤销不能让父任务无限等待
 已失去授权的子任务。
 
-非 Pi 和未解决固定修订的历史会话只读。已删除的专用公开执行、runtime MCP/dashboard、上传、模型和 profile 路由不映射到新执行器。保留非删除范围内的历史消息、response 和绑定文件读取，以及真实已绑定操作的取消/排空。旧 `pi-harness` 任务标记仅用于绑定清理，不接受新执行或重放。转换产生须重新授权的全新 Pi 草稿，不恢复旧运行时状态。
+已退役运行时和未解决固定修订的历史会话只读；当前 Pi SDK 与 OMP 不属于已退役运行时。已删除的专用公开执行、runtime MCP/dashboard、上传、模型和 profile 路由不映射到新执行器。保留非删除范围内的历史消息、response 和绑定文件读取，以及真实已绑定操作的取消/排空。旧 `pi-harness` 任务标记仅用于绑定清理，不接受新执行或重放。转换产生须重新授权的全新 Pi 草稿，不恢复旧运行时状态。
 公共 API 的认证、凭据、限额、历史、取消与重放数据契约保留，但不恢复执行。所有运行时的 `publicEndpoint=false`；A2A 服务启用在创建客户端/密钥前返回 `runtime_unsupported`（HTTP 409），旧公开发布 action 已删除。公开 A2A 的新消息和续写在持久化前拒绝（内部 HTTP 410，传输层可能序列化为协议错误）；Responses/OpenAI HTTP 执行入口保持 HTTP 410，不引入兼容适配器或创建新 Run/分配。关闭服务和撤销现有密钥仍可操作。
 活跃会话终端流每 15 秒重新校验相同的当前认证身份、工作区成员资格、固定修订、沙箱映射
 与 bridge；凭据、身份或执行权限撤销会关闭流，已打开连接不代表永久授权。

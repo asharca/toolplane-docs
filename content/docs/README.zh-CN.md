@@ -44,7 +44,7 @@
 
 | 文档 | 内容 |
 |---|---|
-| [升级与恢复](./RUNTIME_OPERATIONS.zh-CN.md) | 受控切换、包导入、客户端登记与单所有者恢复 |
+| [升级与恢复](./RUNTIME_OPERATIONS.zh-CN.md) | GitHub 插件来源、v3 格式、自动跟随审核、受控切换与单所有者恢复 |
 | [日志与审计](./OBSERVABILITY.zh-CN.md) | 日志模型、诊断抓取与保留策略 |
 | [版本发布](./RELEASES.zh-CN.md) | release-please 发布流程与 GitHub 配置 |
 | [共享 UI](./UI_LIBRARY.zh-CN.md) | 原版 beUI Registry 源码接入 |
@@ -55,4 +55,4 @@
 - 行为以代码为准；跨仓库的功能变更应关联代码 PR 与文档 PR，并说明适用版本。结构图和流程图优先使用 Mermaid。
 - 新专题放在 `content/docs/`，中文使用 `TOPIC_NAME.zh-CN.md`，开头说明用途与读者。
 
-- [统一入口与执行前审批](./A2A_INGRESS_APPROVALS.zh-CN.md)
+- [统一入口与原生 Pi 交互](./A2A_INGRESS_APPROVALS.zh-CN.md)

@@ -29,7 +29,7 @@ http_headers = { Authorization = "Bearer <API_TOKEN>" }
 
 | 工具 | 用途 |
 |---|---|
-| `list_agent_resources` | 安全列出模型 Provider、MCP recipe、Skill 和 Sandbox ID；列出资源不等于授予执行权限 |
+| `list_agent_resources` | 安全列出模型 Provider、MCP recipe、Skill 和可挂载的外挂沙箱（`externalSandboxes`）ID；列出资源不等于授予执行权限 |
 | `inspect_mcp_deployment` | 查看一个运行中 MCP 对 AI 开放的工具及输入 schema |
 | `list_agents` | 列出智能体、就绪状态和资源数量，也可发现 Sub-agent ID |
 | `get_agent` | 读取单个智能体的安全配置、绑定关系、运行时状态和控制台路径 |
@@ -41,13 +41,17 @@ http_headers = { Authorization = "Bearer <API_TOKEN>" }
 1. 调用 `list_agent_resources` 和 `list_agents` 获取当前工作区可用 ID。
 2. 对计划绑定的 MCP 调用 `inspect_mcp_deployment`。
 3. 调用 `create_agent`，使用 `runtime: "pi-sdk"`、`providerId`、`model` 和 `systemPrompt`。
-4. 在控制台审阅并发布初始不可变环境与能力范围。草稿绑定不等于允许全部 MCP 工具，须实际发现并明确批准工具名。
+4. 在控制台审阅并发布初始不可变环境与能力范围。MCP 绑定始终跟随部署工具目录；工具访问权限仅在 MCP 部署的 Tools 页选择，并统一作用于所有已连接的 Agent 与 Assistant。
 5. 调用 `get_agent` 检查 `configured` / `ready` 和已发布修订，再调用 `send_message_to_agent`；继续固定会话时传回 `conversationId`。
 
 `create_agent.runtime` 只接受 `"pi-sdk"`。旧 `"pi"`、`"hermes"`、`"claude-code"`、`"dsh"`、`"hermes-rpc"` 及不存在的 `"native"` 别名均拒绝且不创建对象。已有非 Pi 历史保持只读。工具契约见 [`control-mcp.ts`](../src/lib/agents/control-mcp.ts)，历史元数据清单见 [`runtime-kind.ts`](../src/lib/agents/runtime-kind.ts)。
 
 模型配置可以省略。创建始终产生未发布草稿；执行须明确准备和发布初始修订，不会自动启动运行时。
 `maxSteps` 表示单次回复的最大工具调用轮次，范围为 `1..1000`，默认值为 `100`。
+每个智能体创建时自动获得固定的本体沙箱，不能通过参数指定或替换。`externalSandboxes`
+可选挂载最多 16 个外挂沙箱，每项为 `{ "sandboxId": "...", "access": "read" | "write" | "full" }`，
+`access` 默认 `read`；ID 必须来自 `list_agent_resources.externalSandboxes`。`get_agent`
+在 `resources.externalSandboxes` 中返回已挂载的沙箱及访问级别。
 `create_agent` 是非幂等操作；如果客户端在响应前断线或超时，应先调用
 `list_agents` 确认是否已经创建，再决定是否重试。
 
