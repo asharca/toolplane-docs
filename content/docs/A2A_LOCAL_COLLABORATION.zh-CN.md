@@ -126,7 +126,7 @@ curl "$TOOLPLANE_URL/api/v1/workspaces/$WORKSPACE/agents/$AGENT_ID/a2a/local" \
 }
 ```
 
-内联 Part 使用标准 A2A 的 `text`、`data` 或规范 Base64 `raw`；内联内容合计不超过 32 KiB。
+内联 Part 使用标准 A2A 的 `text`、`data` 或规范 Base64 `raw`；文本及结构化交付内容合计仍受 32 KiB 交付物预算约束。内联文件 `raw` 单独使用管理员设置的 A2A 内联文件上限，默认 32 KiB，可配置为 1–10240 KiB（包括 512 KiB）。远端自身的 32 KiB 上限不会随本平台设置改变。
 发布工具还接受当前任务的 `fileId` 或允许的沙箱文件 `path`，不能借此读取任意宿主路径。
 文件写入不可变任务存储后，持久化交付物只保留所属任务的文件句柄，不保存 Base64 或远端签名 URL。
 单文件最多 10 MiB、每任务最多 20 个文件且合计 100 MiB；文件保留七天，下载仍需任务权限。

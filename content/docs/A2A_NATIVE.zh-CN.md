@@ -58,7 +58,7 @@ POST /api/v1/agent-endpoints/{endpointId}/a2a
 
 Card 也需要该 Endpoint 的授权凭据，可通过直接配置的 Card URL 发现，不把根域名的
 well-known 文档改成自定义 Agent 数组。Card 地址来自部署者配置的 `NEXT_PUBLIC_APP_URL`，
-不能由不可信 Host Header 决定；非 loopback 部署要求 HTTPS。
+不能由不可信 Host Header 决定；非 loopback 部署默认要求 HTTPS，平台管理员可通过[传输调试设置](RUNTIME_OPERATIONS.zh-CN.md#管理员传输调试设置)允许显式 HTTP。
 Card 只含公开名称、服务修订、能力、地址和鉴权声明，不含提示词、Provider、内部工具或凭据。
 
 ```bash

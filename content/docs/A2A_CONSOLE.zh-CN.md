@@ -52,7 +52,7 @@
 
 ## 连接地址与 API 文档
 
-设置页分别展示账户入口和发布服务的 RPC / Agent Card 地址，可直接复制。地址来自部署配置 `NEXT_PUBLIC_APP_URL`，不从不可信 Host / X-Forwarded-Host 生成。生产环境需要 HTTPS；回环地址允许 HTTP，开发环境还允许 RFC1918 私有 IPv4。
+设置页分别展示账户入口和发布服务的 RPC / Agent Card 地址，可直接复制。地址来自部署配置 `NEXT_PUBLIC_APP_URL`，不从不可信 Host / X-Forwarded-Host 生成。默认要求 HTTPS；回环地址允许 HTTP，开发环境还允许 RFC1918 私有 IPv4。平台管理员可在「系统设置 → HTTP 调试与 A2A 文件」启用全局 HTTP 调试，不绕过 Bearer、Origin 或工作区权限校验；外部客户端及远端服务仍可坚持 HTTPS。
 
 接口参数、鉴权、JSON-RPC 方法、SSE 响应和调用示例统一在 `/docs-api` 查看。Scalar 随应用打包，不依赖运行时 CDN，也不持久化凭据或启用托管 AI。A2A 是服务端到服务端接口，请复制生成的请求到自己的后端执行，不改变原有 Origin、Bearer 和工作区权限校验。
 
