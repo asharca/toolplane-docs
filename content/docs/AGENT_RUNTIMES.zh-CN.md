@@ -176,6 +176,10 @@ UI 请求和持久展示投影上限为 256 KiB，最多 32 个待答对话和 6
 
 单个工具调用失败（例如 shell 命令以非零状态退出）只是一条失败的工具结果，模型读到后继续处理，不会让本轮失败。模型请求失败、用户停止或 UI 传输失败时，本轮以 `PI_SDK_MODEL_FAILED` / `PI_SDK_ABORTED` / `PI_SDK_UI_FAILED` 结束，但已写入的原生会话历史会保存，下一条消息在同一会话里继续，不会变成 `PI_SDK_SESSION_MISSING`，也不会重放这一轮。
 
+单次模型请求失败时，宿主按工作区设置 **模型请求重试**（`Workspace.modelRetryAttempts`，0–10，默认 3，工作区成员均可修改）在本轮内原地重试，退避为 2s、4s、8s…。每轮开始时读取当前值，不进入修订，也不重启常驻宿主。可重试的失败沿用 Pi 0.87.1 的瞬时错误判定（限流、5xx、超时、连接中断、流未结束等），另外加入网关已返回 HTTP 200、却在流中报告上游空响应的情况（例如 sub2api 的 `empty_stream`）。失败的那次请求保留在原始历史中，但不会作为 assistant 回合重新发给模型；它没有执行任何工具，因此不会重复执行工具。
+
+重试用尽或遇到不可重试的错误时，返回固定原因并附带已重试次数，例如 `PI_SDK_MODEL_FAILED: EMPTY_STREAM RETRIED_3`。原因只来自白名单：`HTTP_nnn`、`UNREACHABLE`、`TIMEOUT`、`EMPTY_STREAM`、`STREAM_INCOMPLETE`、`CONTENT_FILTER`、`PROVIDER_ERROR`；供应商原文不会离开宿主。控制台会把它翻译成可操作的提示。重试次数计入任务总时限。
+
 单一 runtime owner 完成恢复后才接受执行。所有权丢失停止新工作；停机停止 coordinator/broker，排空或中止跟踪操作，最后释放所有权。不确定清理保留 dirty marker。HTTP liveness 不等于 readiness，换数据库/domain 或删除恢复标记不是接管流程。遵循[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md)，包括准确且仅用于一次重启的恢复 ACK 要求。
 
 **已退役运行时和未解决固定引用的历史会话只读。**保留非删除范围内的历史消息、response、绑定文件读取、历史解析/归档访问及真正已绑定操作的取消/排空。不得启动、恢复、重放旧运行时，也不向其上传或开启执行终端。已删除的专用执行/model/profile/runtime MCP/dashboard/upload 路由不是兼容入口。旧 `pi-harness` 任务标签只识别绑定清理。受控转换须排空旧任务，创建全新草稿并重新审阅授权，不恢复旧运行时状态、不自动重新发布公开包。公共 A2A 服务启用返回 `runtime_unsupported`（HTTP 409），旧公开发布 action 已删除；公开 A2A 发送及退役 HTTP 执行入口在新记录或分配前拒绝（HTTP 410 或对应协议错误），不转接新执行器。
