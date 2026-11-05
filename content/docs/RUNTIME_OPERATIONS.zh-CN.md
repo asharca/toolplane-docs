@@ -145,6 +145,10 @@ Docker MCP 的环境值只通过运行时 stdin 引导传入，不使用 Docker 
 
 工作区 owner/admin 可在“来源”登记自己的 GitHub `owner/repository` 和分支：公开仓库无需令牌，私有仓库使用有读取权限的 PAT，加密存储且不回显。工作区来源的插件只对本工作区可见，即使仓库本身公开也不会成为全局来源。成员可查看，来源增删、凭据修改、同步及插件添加/更新/移除均重新检查工作区权限。不使用 GitHub App，不支持 GitLab、npm registry 或任意 HTTPS 目录来源。
 
+仓库字段填写 `owner/repository`，不接受完整 GitHub URL 或 `.git` 后缀；分支填写实际分支名，不是分支页面链接。PAT 只粘贴令牌本身，不包含 `Bearer`、引号或换行。Fine-grained PAT 须选择目标仓库并授予 Contents 读取权限；组织仓库还须满足组织审批及 SSO 等访问策略。
+
+提交失败会区分名称、仓库、分支、PAT 格式或缺失，以及 GitHub 拒绝访问／未找到资源。错误不回显 PAT；当前页面保留未成功提交的输入和私有选项，便于修正后重试，成功才重置表单。失败草稿不会持久化，刷新或离开页面仍会丢失。GitHub 的 404 也可能表示 PAT 无权读取私有仓库，不能只据此认定仓库不存在。
+
 ### 使用官方仓库与贡献插件
 
 插件中心提供“创建自己的市场”和“向官方贡献插件”入口。官方仓库为普通 GitHub 仓库，不启用模板功能。用户通过 Fork 创建自己的仓库，再运行 `node scripts/create-plugin.mjs my-review` 创建只读 Pi review prompt、README 和索引项；运行 `node scripts/validate-registry.mjs` 后提交到自己的仓库，并在平台“来源”登记和同步。Fork 不授予官方身份，也不扩大工作区可见性。
@@ -186,6 +190,8 @@ Docker MCP 的环境值只通过运行时 stdin 引导传入，不使用 Docker 
 ### 同步与更新提示
 
 登记来源会初次同步，也可点击“立即同步”。后台只处理已排队任务，不轮询上游、不发送更新通知。同步把分支解析为固定 commit，从该 commit 捕获 Pi 制品，执行路径/内容校验与 secret scan 后自动批准，不走发布前人工审核队列。同版本不同内容拒绝索引，失败保留上一成功目录；仓库不可达不等于插件已移除。同步不在应用宿主机执行仓库脚本，不安装 CLI、不注入凭据，也不授予 Agent 执行权限。
+
+解析分支最新提交时不限制 GitHub 提交详情响应的字节数，避免包含大量文件变更的合法提交阻断同步；仍校验提交 SHA，并保留请求超时、仓库授权、插件文件／目录、归档与同步总量的现有限额。大型提交详情可能增加应用内存占用。
 
 自动同步使用 GitHub JSON push Webhook，端点保持 `/api/v1/resource-registries/{registryId}/webhook`。取得该来源的 Webhook 配置后，将返回的派生 Secret 填入 GitHub，**不要填写服务端主密钥**。只有匹配登记仓库/分支且通过签名校验的 push 才入队；delivery ID 去重，HTTP 202 仅表示已排队。没有 Webhook 仍可手动同步，不接受未签名请求降级。轮换主密钥后需重新配置各来源 Webhook。
 
