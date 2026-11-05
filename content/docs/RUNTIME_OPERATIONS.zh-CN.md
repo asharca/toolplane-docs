@@ -221,6 +221,8 @@ Pi 捕获要求 runtime owner 已就绪，使用隔离非 root 容器；生产�
 
 Conversation、A2A context 和 Work 固定不可变修订及包制品，更新不重写已有引用。无法证明准确引用时返回 `AGENT_REVISION_UNRESOLVED`，保留历史只读；持久会话丢失返回 `PI_SDK_SESSION_MISSING`，需新建会话，不能重放历史伪造恢复。文件/链接篡改以 `PI_PACKAGE_CHECKSUM_MISMATCH` 拒绝执行，扩展加载失败为 `PI_EXTENSION_LOAD_FAILED`。命令保留大小写及 `:1` 冲突后缀；Web 支持原生 RPC UI 对话及文本投影，不转译任意 TUI 自定义组件。
 
+原生 Pi 宿主为扩展和工具子进程设置 `PYTHONDONTWRITEBYTECODE=1`，防止 Python 技能导入在固定包快照中生成 `__pycache__`／`.pyc`，导致下一轮完整性校验失败。技能的报告、缓存等运行产物应写入会话工作目录，不应写入固定插件目录。既有污染须先备份并确认差异，仅清理已确认的生成缓存后重新执行完整校验；不忽略额外文件、不改写清单或放宽摘要校验。
+
 
 ## 不可变 Pi SDK 修订
 
