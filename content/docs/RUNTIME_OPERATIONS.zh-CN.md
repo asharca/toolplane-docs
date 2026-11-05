@@ -33,7 +33,7 @@ Docker 构建与运行阶段共用 `python-runtime-base`，确保 Prisma 组装�
 
 当前应用、SDK 沙箱与捕获平台使用 Node 26。受管启动器仍在 Next 前加载 `abort-signal.cjs`，对原生 `AbortSignal.any()` 的结果短暂添加再移除 abort 监听器，启动弱引用源信号跟踪。该兼容处理源于 Node 24.21 上曾观察到的嵌套组合信号保留与 `Set maximum size exceeded`，不表示已经证明 Node 26 存在相同缺陷。发布组装仍须将该文件与内嵌 `server.cjs` 放在同一目录；移除前须在目标 Node 版本运行 `pnpm vitest run tests/unit/abort-signal.test.ts` 并验证长时间运行行为。已经耗尽信号集合的进程须受控重启；只重启 MCP bridge 无法清空主进程的信号集合。
 
-旧 Agent 迁入 Pi 前，先保全原始数据归档。兼容的 Pi／OMP 历史按既有会话修订和恢复规则处理；Hermes 记录和历史按退役迁移从现役库移除，保存在迁移前的离线归档，不回填为可执行旧会话。为新 Agent 重新应用修订并迁移工作区内的资源绑定，业务文件与旧运行时配置、令牌、数据库连接分开处理。记录创建、修订应用、渠道连接和 readiness 均不能代替执行验收：逐个检查真实模型请求、原生工具调用及其结果，并独立检查所绑定 MCP 的工具发现。旧供应商的模型下架、凭据失效或业务 MCP 不可达必须明确列为阻塞；未经用户明确同意，不能删除绑定后宣称完整迁移。用户允许暂不绑定故障 MCP 或不恢复指定 Agent 时，保留其配置和归档，并在交付中列明排除项。
+旧 Agent 迁入 Pi 前，先保全原始数据归档。Pi 历史按既有会话修订和恢复规则处理；OMP 历史保留只读，不再恢复执行，转换只创建需要重新授权的 Pi 草稿。Hermes 记录和历史按退役迁移从现役库移除，保存在迁移前的离线归档，不回填为可执行旧会话。为新 Agent 重新应用修订并迁移工作区内的资源绑定，业务文件与旧运行时配置、令牌、数据库连接分开处理。记录创建、修订应用、渠道连接和 readiness 均不能代替执行验收：逐个检查真实模型请求、原生工具调用及其结果，并独立检查所绑定 MCP 的工具发现。旧供应商的模型下架、凭据失效或业务 MCP 不可达必须明确列为阻塞；未经用户明确同意，不能删除绑定后宣称完整迁移。用户允许暂不绑定故障 MCP 或不恢复指定 Agent 时，保留其配置和归档，并在交付中列明排除项。
 
 只读 MCP 容器通过 `uvx` 启动时，除可写的缓存目录外，还需显式设置 `UV_TOOL_DIR` 和 `UV_TOOL_BIN_DIR` 到容器内可写的 `/tmp` 子目录；不要为解决 `/root/.local/share/uv/tools` 写入失败而取消只读根文件系统。环境值仍通过工作区绑定的 MCP 凭据封装保存，修改后重新应用受影响 Agent 的修订。
 
@@ -275,9 +275,9 @@ Agent/Assistant 自动发布只刷新 MCP 授权的新修订；已有会话保�
 不作为新审批入口；旧 `waiting_approval` Work 标为失败，不自动执行或重放。
 数据库仅保存有界 Web 投影，原生会话文件仍是 todo 和上下文的权威来源。
 
-每个 Agent 按固定环境懒创建一个持久沙箱，会话在 `/workspace/conversations/` 下拥有独立目录；不同 Agent 不共享可写卷。同一 Agent 内目录分离不是原生 shell 的安全隔离。Pi／OMP 固定运行时安装按 Agent 复用，原生状态在会话目录的 `.toolplane/runtimes/<运行时>/agents/<agent-id>/` 下。数据库管理会话身份、修订、包固定引用、任务回执与授权；共享 sandboxId 不再唯一标识会话或插件快照。保留 context 必须重新打开原会话；状态丢失须排查或恢复卷，不伪造历史。
+每个 Pi Agent 按固定环境懒创建一个持久沙箱，会话在 `/workspace/conversations/` 下拥有独立目录；不同 Agent 不共享可写卷。同一 Agent 内目录分离不是原生 shell 的安全隔离。Pi SDK 固定安装按 Agent 复用，原生状态在会话目录的 `.toolplane/runtimes/pi-sdk/agents/<agent-id>/` 下。数据库管理会话身份、修订、包固定引用、任务回执与授权；共享 sandboxId 不再唯一标识会话或插件快照。保留 context 必须重新打开原会话；状态丢失须排查或恢复卷，不伪造历史。
 
-共享沙箱切换须备份后应用 `20261103000000_agent_shared_sandbox`、`20261103010000_shared_sandbox_conversations`、`20261103020000_shared_sandbox_package_sets`，生成客户端并重启。旧卷在首次执行时校验后完整迁入会话目录，再原子移动 Conversation／Context／Work／PiSessionPackageSet 映射；原卷只读保留至 Agent 删除。原生 JSONL 只重定位 session 头与宿主路径，保留 OMP 标题前导记录及消息正文。不得把旧授权令牌复制成新执行凭据。
+共享沙箱切换须备份后应用 `20261103000000_agent_shared_sandbox`、`20261103010000_shared_sandbox_conversations`、`20261103020000_shared_sandbox_package_sets`，生成客户端并重启。Pi 旧卷首次执行时校验后完整迁入会话目录，再原子移动 Conversation／Context／Work／PiSessionPackageSet 映射；原卷只读保留至 Agent 删除。原生 JSONL 只重定位 session 头与宿主路径。OMP 既有卷和标题前导记录、消息正文仅作历史保留，不触发执行迁移。不得把旧授权令牌复制成新执行凭据。
 
 同会话串行、原生/session-MCP 租约及原有 Agent/平台并发限制继续生效。停止和取消
 停止绑定进程及会话 MCP sidecar，不删除工作卷。本文其他章节的通用 owner、dirty-marker
@@ -301,7 +301,7 @@ Agent/Assistant 自动发布只刷新 MCP 授权的新修订；已有会话保�
 扩大祖先批准的深度。续接纳入子任务结果前也须校验当前子任务权限；撤销不能让父任务无限等待
 已失去授权的子任务。
 
-已退役运行时和未解决固定修订的历史会话只读；当前 Pi SDK 与 OMP 不属于已退役运行时。已删除的专用公开执行、runtime MCP/dashboard、上传、模型和 profile 路由不映射到新执行器。保留非删除范围内的历史消息、response 和绑定文件读取，以及真实已绑定操作的取消/排空。旧 `pi-harness` 任务标记仅用于绑定清理，不接受新执行或重放。转换产生须重新授权的全新 Pi 草稿，不恢复旧运行时状态。
+只有 Pi SDK 可执行。OMP 已退役；这次退役不删除 Agent、修订、消息、文件或工作卷，也不改写固定引用，无需数据迁移。部署前排空旧任务并受控重启；新建、发布、回滚到 OMP、续写、执行终端和运行时回调均拒绝。OMP 原生子任务和角色模型不再授权，离线导出仍可用，但导入目标固定为 Pi，不兼容项必须明确排除或修正。已退役运行时和未解决固定修订的历史会话只读；保留历史消息、response、绑定文件读取及真正已绑定操作的取消／排空。转换产生须重新授权的全新 Pi 草稿，不恢复旧状态、凭据或会话。已删除的专用公开执行、runtime MCP/dashboard、上传、模型和 profile 路由不映射到新执行器；旧 `pi-harness` 标签仅用于绑定清理，不接受新执行或重放。
 公共 API 的认证、凭据、限额、历史、取消与重放数据契约保留，但不恢复执行。所有运行时的 `publicEndpoint=false`；A2A 服务启用在创建客户端/密钥前返回 `runtime_unsupported`（HTTP 409），旧公开发布 action 已删除。公开 A2A 的新消息和续写在持久化前拒绝（内部 HTTP 410，传输层可能序列化为协议错误）；Responses/OpenAI HTTP 执行入口保持 HTTP 410，不引入兼容适配器或创建新 Run/分配。关闭服务和撤销现有密钥仍可操作。
 活跃会话终端流每 15 秒重新校验相同的当前认证身份、工作区成员资格、固定修订、沙箱映射
 与 bridge；凭据、身份或执行权限撤销会关闭流，已打开连接不代表永久授权。
