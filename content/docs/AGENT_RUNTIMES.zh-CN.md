@@ -94,7 +94,7 @@ SDK 要求 Linux、Node 26，原生包架构须匹配 Docker daemon。可信运�
 
 ## 4. 会话固定引用与共享工作环境
 
-新 Conversation、Work 和本地 A2A context 持久化 `agentRevisionId`；Work 在分配目录前的准入阶段固定修订。每个 Agent 按固定环境懒创建一个持久沙箱，不读取当前可变模板。会话分别使用 `/workspace/conversations/conversation-<身份摘要>/`；无 Conversation 的 A2A 使用 `context-<身份摘要>`。Pi SDK 安装在共享的 `/workspace/.toolplane/runtime-packages/`，会话 HOME、插件装配、技能、宿主 socket、临时文件和原生历史位于各自目录。目录分离不是同一 Agent 内的容器安全隔离；不同 Agent 不共享可写卷。当前共享沙箱执行租约使同一 Agent 的 turn 串行，跨 Agent 仍受平台并发限额控制。
+新 Conversation、Work 和本地 A2A context 持久化 `agentRevisionId`；Work 在分配目录前的准入阶段固定修订。每个 Agent 按固定环境懒创建一个持久沙箱，不读取当前可变模板。会话分别使用 `/workspace/conversations/conversation-<身份摘要>/`；无 Conversation 的 A2A 使用 `context-<身份摘要>`。Pi SDK 安装在共享的 `/workspace/.toolplane/runtime-packages/`，会话 HOME、插件装配、技能、宿主 socket、临时文件和原生历史位于各自目录。目录分离不是同一 Agent 内的容器安全隔离；不同 Agent 不共享可写卷。共享沙箱执行租约按会话划分：同一会话串行，同一 Agent 的不同会话在管理员的单 Agent／平台并发限额内并行；停止、删除、迁移等生命周期操作独占整个沙箱。共享运行时安装和新会话绑定在同一沙箱内依次进行，不阻塞已在执行的会话。
 
 显式调用 Agent 会话的 `POST /api/v1/agents/{agentId}/conversations/{conversationId}/revision` 升级时，Conversation、关联 Work 及属于该会话的普通入口 Context 在同一事务内前移到当前修订；Context 的目标绑定同步更新，ID、原生状态和目录不变。共享沙箱的环境固定引用和其他会话不变；改变镜像、网络、凭据等共享环境的升级返回 `AGENT_SHARED_ENVIRONMENT_CONFLICT`，不会隐式影响其他会话。历史任务、授权快照、消息和幂等回执不重写。存在排队、执行、等待输入/授权或尚未停止的后代任务时拒绝升级。普通发送消息不会隐式升级。
 
