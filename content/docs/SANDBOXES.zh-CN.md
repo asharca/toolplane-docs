@@ -99,7 +99,7 @@ mcr.microsoft.com/devcontainers/javascript-node:26-bookworm
 
 #### 智能体共享沙箱与会话目录
 
-Pi SDK 和 OMP 按智能体共享一个持久 Docker 执行环境，固定版本运行时只安装一次。每个会话在 `/workspace/conversations/` 下使用自己的目录、HOME、插件、技能和原生历史；无控制台会话的本地 A2A context 也有独立目录。文件面板和终端以当前会话目录为根，终端流每 15 秒重新校验凭据、成员资格和映射。
+Pi SDK 和 OMP 按智能体共享一个持久 Docker 执行环境，固定版本运行时只安装一次。每个会话在 `/workspace/conversations/` 下使用自己的工作目录、插件、技能和原生历史；无控制台会话的本地 A2A context 也有独立目录。HOME（`/workspace/.toolplane/agent-home`）和 XDG 目录按智能体共享，CLI 登录、配置和 `~/.local/bin` 安装对该智能体所有会话可见，删除会话不会清除，删除智能体时随卷删除；`gh auth logout` 等操作同样影响所有会话。会话目录中的 `shared` 链接指向 `/workspace/shared`，用于显式共享文件。文件面板和终端以当前会话目录为根；文件面板拒绝 `.toolplane` 路径，并在解析符号链接后只允许访问当前会话目录和 `/workspace/shared`。终端流每 15 秒重新校验凭据、成员资格和映射。
 
 这是同一智能体内的目录分离，不是进程／容器级隔离；原生 shell 在该智能体授权的共享容器内执行。不同智能体仍有独立容器和可写卷，不能用另一智能体或会话的令牌访问平台文件入口。打开尚未执行的会话不会展示或创建模板工作区。会话终端保持打开不阻止已运行沙箱中的后续 turn；真正的启动和破坏性生命周期操作仍要求独占访问。
 
