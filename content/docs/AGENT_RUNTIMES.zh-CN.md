@@ -1,7 +1,9 @@
 # Agent 运行时实现：原生 Pi SDK
 
 
-ToolPlane 使用官方 `AgentSession` 的 **Pi SDK 0.87.1**，在 Agent 专属 Docker 沙箱中执行。GitHub 插件来源、所有权与恢复流程见[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md)。
+ToolPlane 使用官方 `AgentSession` 的 **Pi SDK 1.5.2**，在 Agent 专属 Docker 沙箱中执行。GitHub 插件来源、所有权与恢复流程见[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md)。
+
+从 0.87.1 升级为原地兼容：记录 `piVersion: "0.87.1"` 的已应用修订、记录 `sdkVersion: "0.87.1"` 的会话状态和 0.87.1 捕获的能力包继续在 1.5.2 上执行，无需新建会话或重新授权；会话状态在下一轮写回 1.5.2，之后发布的修订和新捕获的包均记录 1.5.2。其他版本仍以 `PI_SDK_VERSION_MISMATCH` 拒绝。
 
 OMP、普通 Pi CLI、Claude Code、DSH 和旧 Harness 均已退役，不是可选执行器或恢复降级方案。历史消息、修订和绑定文件保留只读；转换创建需要显式授权的全新 Pi 草稿，不恢复旧会话，也不继承旧凭据或执行授权。
 
@@ -15,7 +17,7 @@ OMP、普通 Pi CLI、Claude Code、DSH 和旧 Harness 均已退役，不是可�
 
 控制台新建向导最后的**创建并启用**是一次明确授权：用户已选择模型、技能、能力包和工具并看到配置摘要，提交后自动准备和应用首个不可变版本，成功直接进入可输入的工作页，不再要求去设置重复启用。准备期间显示检查进度；任何权限、依赖或能力预检失败都在原表单反馈并保留输入，Agent、默认沙箱与首个版本一并回滚，不留下创建成功但无法使用的半成品。准备通过不代表已执行任务，仍由用户发送消息才开始执行。
 
-Pi SDK 在创建／发布前准备：从固定 digest 的 `toolplane-pi-package-capture:0.87.1` 镜像离线导出 SDK 与完整生产依赖，校验后存入服务进程用户的 `~/.cache/toolplane/pi-sdk/0.87.1/linux-<架构>-node26/<镜像摘要>/`。并发准备复用同一制品，缓存不包含会话或凭据。首次使用的 Agent 卷通过受跟踪流接收内部归档，校验字节、路径、链接与包版本后原子安装；聊天不运行 pnpm，也不访问 npm。专用安装进程使用固定大小的复用缓冲区复制和校验文件，避免为上万个小文件反复创建读写流，不省略归档与安装后完整性校验。后续轮次检查安装状态并复用 SDK，已有不完整安装明确失败，不静默覆盖。
+Pi SDK 在创建／发布前准备：从固定 digest 的 `toolplane-pi-package-capture:1.5.2` 镜像离线导出 SDK 与完整生产依赖，校验后存入服务进程用户的 `~/.cache/toolplane/pi-sdk/1.5.2/linux-<架构>-node26/<镜像摘要>/`。并发准备复用同一制品，缓存不包含会话或凭据。首次使用的 Agent 卷通过受跟踪流接收内部归档，校验字节、路径、链接与包版本后原子安装；聊天不运行 pnpm，也不访问 npm。专用安装进程使用固定大小的复用缓冲区复制和校验文件，避免为上万个小文件反复创建读写流，不省略归档与安装后完整性校验。后续轮次检查安装状态并复用 SDK，已有不完整安装明确失败，不静默覆盖。
 
 容器化应用从自身读取可信 SDK 安装器，经 stdin 交给无网络、只读根文件系统的固定镜像执行，不把应用内部脚本路径交给宿主 Docker daemon 做 bind mount。该导出不需要共享脚本目录；独立的原生能力预检仍遵循运维文档的专用 `TMPDIR` 挂载要求。
 
@@ -161,7 +163,7 @@ MCP 工具必须同时位于不可变修订授权和当前显式工具 allowlist
 
 ## 7. 原生预检、包与命令
 
-Prepare/发布在固定隔离捕获镜像 `toolplane-pi-package-capture:0.87.1` 中使用真实 SDK loader，不靠扩展工厂源码文本猜测能力。原生命名空间检查覆盖工具、命令、Skill、prompt 及保留的生成 MCP 名称。冲突保留类型化 `PI_CAPABILITY_CONFLICT`；所选扩展加载失败保留 `PI_EXTENSION_LOAD_FAILED` 和有界阶段诊断。不静默丢弃冲突扩展或替换版本。
+Prepare/发布在固定隔离捕获镜像 `toolplane-pi-package-capture:1.5.2` 中使用真实 SDK loader，不靠扩展工厂源码文本猜测能力。原生命名空间检查覆盖工具、命令、Skill、prompt 及保留的生成 MCP 名称。冲突保留类型化 `PI_CAPABILITY_CONFLICT`；所选扩展加载失败保留 `PI_EXTENSION_LOAD_FAILED` 和有界阶段诊断。不静默丢弃冲突扩展或替换版本。
 
 冻结快照包含依赖，执行和 reload 前完整验证字节与链接；篡改在 turn 执行前返回 `PI_PACKAGE_CHECKSUM_MISMATCH`。原生快照必须匹配执行平台/架构。启动不安装插件依赖、不执行包管理器 hooks，也不将发现任意用户配置作为降级方案。
 
@@ -180,7 +182,7 @@ UI 请求和持久展示投影上限为 256 KiB，最多 32 个待答对话和 6
 
 单个工具调用失败（例如 shell 命令以非零状态退出）只是一条失败的工具结果，模型读到后继续处理，不会让本轮失败。模型请求失败、用户停止或 UI 传输失败时，本轮以 `PI_SDK_MODEL_FAILED` / `PI_SDK_ABORTED` / `PI_SDK_UI_FAILED` 结束，但已写入的原生会话历史会保存，下一条消息在同一会话里继续，不会变成 `PI_SDK_SESSION_MISSING`，也不会重放这一轮。
 
-单次模型请求失败时，宿主按工作区设置 **模型请求重试**（`Workspace.modelRetryAttempts`，0–10，默认 3，工作区成员均可修改）在本轮内原地重试，退避为 2s、4s、8s…。每轮开始时读取当前值，不进入修订，也不重启常驻宿主。可重试的失败沿用 Pi 0.87.1 的瞬时错误判定（限流、5xx、超时、连接中断、流未结束等），另外加入网关已返回 HTTP 200、却在流中报告上游空响应的情况（例如 sub2api 的 `empty_stream`）。失败的那次请求保留在原始历史中，但不会作为 assistant 回合重新发给模型；它没有执行任何工具，因此不会重复执行工具。
+单次模型请求失败时，宿主按工作区设置 **模型请求重试**（`Workspace.modelRetryAttempts`，0–10，默认 3，工作区成员均可修改）在本轮内原地重试，退避为 2s、4s、8s…。每轮开始时读取当前值，不进入修订，也不重启常驻宿主。可重试的失败沿用 Pi 1.5.2 的瞬时错误判定（限流、5xx、超时、连接中断、流未结束等），另外加入网关已返回 HTTP 200、却在流中报告上游空响应的情况（例如 sub2api 的 `empty_stream`）。失败的那次请求保留在原始历史中，但不会作为 assistant 回合重新发给模型；它没有执行任何工具，因此不会重复执行工具。
 
 重试用尽或遇到不可重试的错误时，返回固定原因并附带已重试次数，例如 `PI_SDK_MODEL_FAILED: EMPTY_STREAM RETRIED_3`。原因只来自白名单：`HTTP_nnn`、`UNREACHABLE`、`TIMEOUT`、`EMPTY_STREAM`、`STREAM_INCOMPLETE`、`CONTENT_FILTER`、`PROVIDER_ERROR`；供应商原文不会离开宿主。控制台会把它翻译成可操作的提示。重试次数计入任务总时限。
 

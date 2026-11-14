@@ -101,7 +101,7 @@ pnpm dev
 
 测试集中保护身份与工作区隔离、Pi/Assistant 执行、不可变修订与凭据授权、会话/Work/A2A 生命周期、MCP 接入以及文件与恢复边界。普通页面、样式、文案、内部函数转发和数据库查询形状不作为永久测试目标；保留的前端测试验证失败恢复、输入保留与错误修订不可应用等核心状态转换。
 
-CI 执行 `pnpm test`，不追求全仓覆盖率数字。需要诊断覆盖情况时可运行 `pnpm test:coverage`，报告写入 `coverage/coverage-summary.json` 和 `coverage/lcov.info`；统计范围为 `src` 与 `packages/connector/bin`，不能代表外部容器或子进程内部的覆盖率。集成测试需要独立的 pgvector PostgreSQL 测试库；先生成 Prisma Client、应用数据库迁移，并构建 Pi 包捕获镜像（`docker build --target pi-package-capture -t toolplane-pi-package-capture:0.87.1 .`），不要使用业务数据库运行测试。
+CI 执行 `pnpm test`，不追求全仓覆盖率数字。需要诊断覆盖情况时可运行 `pnpm test:coverage`，报告写入 `coverage/coverage-summary.json` 和 `coverage/lcov.info`；统计范围为 `src` 与 `packages/connector/bin`，不能代表外部容器或子进程内部的覆盖率。集成测试需要独立的 pgvector PostgreSQL 测试库；先生成 Prisma Client、应用数据库迁移，并构建 Pi 包捕获镜像（`docker build --target pi-package-capture -t toolplane-pi-package-capture:1.5.2 .`），不要使用业务数据库运行测试。
 
 ## 文档
 

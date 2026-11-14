@@ -222,10 +222,10 @@ Agent 设置从**工作区已添加的插件**选择，选择时绑定工作区�
 管理员显式构建可信捕获镜像；同步不会隐式构建：
 
 ```bash
-docker build --target pi-package-capture -t toolplane-pi-package-capture:0.87.1 .
+docker build --target pi-package-capture -t toolplane-pi-package-capture:1.5.2 .
 ```
 
-Pi 捕获要求 runtime owner 已就绪，使用隔离非 root 容器；生产依赖随包冻结，不执行扩展 factory、生命周期脚本、Git hooks 或 pnpmfile。内部归档仅是传输格式，不是 ZIP 上传/发布入口。更新捕获脚本后需重建镜像。SDK 固定 0.87.1，要求 Linux、Node 26，原生快照须匹配执行架构；执行 turn 时不安装插件依赖。
+Pi 捕获要求 runtime owner 已就绪，使用隔离非 root 容器；生产依赖随包冻结，不执行扩展 factory、生命周期脚本、Git hooks 或 pnpmfile。内部归档仅是传输格式，不是 ZIP 上传/发布入口。更新捕获脚本后需重建镜像。SDK 固定 1.5.2，要求 Linux、Node 26，原生快照须匹配执行架构；执行 turn 时不安装插件依赖。此前以 0.87.1 捕获的快照仍可执行，新捕获记录 1.5.2。
 
 Conversation、A2A context 和 Work 固定不可变修订及包制品，更新不重写已有引用。无法证明准确引用时返回 `AGENT_REVISION_UNRESOLVED`，保留历史只读；持久会话丢失返回 `PI_SDK_SESSION_MISSING`，需新建会话，不能重放历史伪造恢复。文件/链接篡改以 `PI_PACKAGE_CHECKSUM_MISMATCH` 拒绝执行，扩展加载失败为 `PI_EXTENSION_LOAD_FAILED`。命令保留大小写及 `:1` 冲突后缀；Web 支持原生 RPC UI 对话及文本投影，不转译任意 TUI 自定义组件。
 
@@ -234,17 +234,18 @@ Conversation、A2A context 和 Work 固定不可变修订及包制品，更新�
 
 ## 不可变 Pi SDK 修订
 
-所有可执行 Agent 均使用 **Pi SDK 0.87.1**。Chat、消息渠道、control、Work 和本地
+所有可执行 Agent 均使用 **Pi SDK 1.5.2**。Chat、消息渠道、control、Work 和本地
 A2A 统一走固定修订的原生 SDK 入口，不回退直接 Pi CLI、宿主 Agent 循环
-或旧 Harness。其他 Pi 版本会被拒绝，不会安装到活跃 Agent 或代替所选版本。
-原生扩展预检需要固定隔离镜像 `toolplane-pi-package-capture:0.87.1`。
+或旧 Harness。记录 0.87.1 的修订和会话原地在 1.5.2 上继续执行；其他 Pi 版本会被拒绝，
+不会安装到活跃 Agent 或代替所选版本。
+原生扩展预检需要固定隔离镜像 `toolplane-pi-package-capture:1.5.2`。
 预检容器只以只读方式挂载暂存的公开辅助脚本，使用独立可写 `/tmp`，不会向只读根文件系统
 复制脚本。原生加载器的命名冲突保留类型化 `PI_CAPABILITY_CONFLICT` 分类。
 `PI_EXTENSION_LOAD_FAILED` 保留有界的分阶段诊断 cause；先检查实际失败阶段，不要直接归因
 于扩展工厂。原生 npm 快照必须匹配执行平台与架构，不能改标签或移植字节冒充兼容。
 Control MCP 只创建原生 `pi-sdk` 草稿；创建不等于执行授权，须明确配置、授权并发布不可变修订。
 
-Pi SDK 执行依赖由 `src/lib/agents/pi-runtime.ts` 从上述固定 digest 镜像离线导出并在创建／发布事务前准备，不依赖聊天时运行包管理器。宿主缓存按版本、架构和镜像摘要隔离；单进程合并并发请求，跨进程使用互斥锁，校验后原子发布。`scripts/pi-sdk-install.mjs` 只接收已准备的本地归档，在 Agent 卷安装前验证完整内容、路径、链接和包版本；运行时不存在才本地分发，部分安装拒绝执行。SDK 缓存不包含 Agent 配置、会话、模型密钥或运行时令牌；升级镜像须重新准备对应制品，不能以另一版本代替固定 0.87.1。
+Pi SDK 执行依赖由 `src/lib/agents/pi-runtime.ts` 从上述固定 digest 镜像离线导出并在创建／发布事务前准备，不依赖聊天时运行包管理器。宿主缓存按版本、架构和镜像摘要隔离；单进程合并并发请求，跨进程使用互斥锁，校验后原子发布。`scripts/pi-sdk-install.mjs` 只接收已准备的本地归档，在 Agent 卷安装前验证完整内容、路径、链接和包版本；运行时不存在才本地分发，部分安装拒绝执行。SDK 缓存不包含 Agent 配置、会话、模型密钥或运行时令牌；升级镜像须重新准备对应制品，不能以另一版本代替固定 1.5.2。升级后须在部署 daemon 上重建 `toolplane-pi-package-capture:1.5.2`；旧 0.87.1 镜像不再使用。
 
 运行时变更流程是 **保存草稿 → Prepare → 审阅 → Apply**：
 
@@ -354,7 +355,7 @@ pnpm test --no-file-parallelism tests/integration/pi-sdk-host.test.ts tests/inte
 | `TOOLPLANE_SMOKE_PERSONAL_TOKEN` | 获准访问这两个本地 A2A 端点的操作者 token，仅放环境变量 |
 | `TOOLPLANE_SMOKE_DATABASE_URL` | 明确指定的本地隔离 PostgreSQL，库名包含 `test`、`acceptance` 或 `disposable` |
 
-两个 Agent 须预先具备活跃的 Pi SDK 0.87.1 已发布修订、固定 digest 环境镜像、可用
+两个 Agent 须预先具备活跃的 Pi SDK 1.5.2 已发布修订、固定 digest 环境镜像、可用
 真实模型、入站授权和原生 `bash` 权限。A 须同时具备已发布及实时出站权限，并有
 明确、有界、仅文本的 A → B 授权。应用/runtime owner 和 Docker 须 ready，不能在
 运行中修改配置或授权强行制造通过结果。
