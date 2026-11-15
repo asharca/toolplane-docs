@@ -28,8 +28,9 @@
 
 | 文档 | 内容 |
 |---|---|
+| [Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md) | 插话/追问、编辑/重试/分支、导出、diff、Agent 引用、工具审批、可选工具与上下文维护；随对应应用 PR 合入后的版本生效 |
 | [远程 MCP HTTP](./REMOTE_MCP_HTTP.zh-CN.md) | HTTP/HTTPS 端点、明文传输确认与能力指纹 |
-| [沙箱与连接器](./SANDBOXES.zh-CN.md) | Docker、设备连接、终端与屏幕 |
+| [沙箱与连接器](./SANDBOXES.zh-CN.md) | Docker、默认沙箱镜像、可选工具依赖、网络、设备连接、终端与屏幕 |
 | [Agent Control MCP](./AGENT_CONTROL_MCP.zh-CN.md) | 从 MCP 客户端创建 Pi 草稿和调用 Agent |
 | [公共 Agent API](./AGENT_PUBLIC_API.zh-CN.md) | 保留的鉴权、限额、历史与当前执行限制 |
 | [A2A 控制台接入](./A2A_CONSOLE.zh-CN.md) | 连接示例、凭据与本地任务调试 |
@@ -38,13 +39,13 @@
 | [远程 A2A Agent](./A2A_REMOTE_AGENTS.zh-CN.md) | 注册、出站授权、远程委派与恢复 |
 | [原生 A2A 1.0](./A2A_NATIVE.zh-CN.md) | 标准任务、事件订阅与发布授权 |
 | [A2A 内部协作](./A2A_LOCAL_COLLABORATION.zh-CN.md) | 本地身份、原生委派、父任务等待与恢复 |
-| [消息渠道](./AGENT_MESSAGING_PLATFORMS.zh-CN.md) | Telegram、飞书、QQ、微信、Discord、Slack |
+| [消息渠道](./AGENT_MESSAGING_PLATFORMS.zh-CN.md) | Telegram、飞书、QQ、微信、Discord、Slack；频道短码审批与运行中追问 |
 
 ## 部署与维护
 
 | 文档 | 内容 |
 |---|---|
-| [升级与恢复](./RUNTIME_OPERATIONS.zh-CN.md) | GitHub 插件来源、v3 格式、自动跟随审核、受控切换与单所有者恢复 |
+| [升级与恢复](./RUNTIME_OPERATIONS.zh-CN.md) | Agent 默认/LSP/debugpy 镜像部署、GitHub 插件来源、v3 格式、自动跟随审核、受控切换与单所有者恢复 |
 | [日志与审计](./OBSERVABILITY.zh-CN.md) | 日志模型、诊断抓取与保留策略 |
 | [版本发布](./RELEASES.zh-CN.md) | release-please 发布流程与 GitHub 配置 |
 | [共享 UI](./UI_LIBRARY.zh-CN.md) | 原版 beUI Registry 源码接入 |

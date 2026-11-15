@@ -5,6 +5,8 @@ Agent 沙箱为 Agent 提供一个行为类似小型操作环境的工作区。�
 的形式暴露给 Agent，并以 PTY 终端流的形式暴露给浏览器控制台。应用不会把任意的服务器
 宿主机目录挂载为沙箱。
 
+下文默认镜像及 Agent 可选工具依赖随对应应用 PR 合入后的版本生效；不表示已有模板或历史修订已升级。使用步骤与工具限制见[Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md)。
+
 沙箱分为两类：
 
 - **智能体沙箱**：每个智能体按需创建并复用一个持久 Docker 执行环境，多个会话各用独立目录。列表显示实际执行沙箱及其真实状态；尚未执行的智能体不会产生占位沙箱。基础环境模板固定属于智能体，不能替换或挂到其他智能体；模板与旧迁移副本不单独列为用户分类，也不计入沙箱数量。
@@ -44,14 +46,25 @@ Sandbox row
             `-- /workspace volume
 ```
 
-默认镜像：
+默认选项使用 ToolPlane 自有沙箱镜像 `ghcr.io/asharca/toolplane-sandbox:latest`，由 Dockerfile 的 `sandbox` target 在 Node 26 开发基础镜像上加入 Chromium、Liberation 与 Noto CJK 字体，最终以非 root 的 `node` 用户运行。服务端可用 `TOOLPLANE_DEFAULT_SANDBOX_IMAGE` 指定固定 digest（非空值必须为 `...@sha256:<64位小写hex>`，可变 tag 拒绝为 `SANDBOX_DEFAULT_IMAGE_INVALID`）。未设置/空白时使用上述默认选项，首次捕获修订仍会解析并固定实际 image digest，拉取失败不静默退回旧镜像。
 
-```txt
-mcr.microsoft.com/devcontainers/javascript-node:26-bookworm
-```
+此选择只影响新建 Agent 模板与新建默认沙箱；既有模板、固定修订的 `environment.image` 和已运行容器不改。需要 Chromium 的旧 Agent 应通过已有显式环境/沙箱配置审核流程或新建 Agent 使用新镜像，不能重写历史 pin。CI 镜像发布、digest 获取与部署见[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md#agent-工具镜像部署)。
 
-容器非特权运行，移除 Linux capabilities，带 pids/cpu/memory 限制，可使用专用的
-`mcp-sandbox` 网络或 `none`。
+容器非特权运行，移除 Linux capabilities，带 pids/cpu/memory 限制。`network=isolated` 使用专用 `mcp-sandbox` bridge，**允许互联网出站，不等于禁网**；`none` 才是断网。沙箱内 browser 使用这套实际网络，不经主机代取；平台侧 `web_search/web_fetch` 则有独立授权和受控出网，不随沙箱 none 自动关闭。
+
+#### 可选工具的沙箱前提
+
+可选工具均默认关闭，须经过 Agent 草稿保存、准备、权限审核和应用修订；镜像存在不代表获得工具权限。启用清单与操作见[工作台指南](./AGENT_WORKBENCH.zh-CN.md#启用可选内置工具)。
+
+| 工具 | 环境前提与边界 |
+| --- | --- |
+| `browser` | 沙箱内需可执行 Chromium；默认镜像设 `TOOLPLANE_CHROMIUM_PATH=/usr/bin/chromium`，这是可执行路径而非启用开关。旧/自定义镜像缺失时返回 `BROWSER_CHROMIUM_MISSING`，不自动安装，不连接用户 Chrome。none 下拒绝 HTTP(S) open，但允许 file/data/about；截图中的敏感信息不能靠文本脱敏移除 |
+| `eval` | Python 需沙箱已有 `python3`，JavaScript 使用宿主 Node；不下载依赖。内存变量不跨宿主重启/回收恢复，notice 会说明状态重建 |
+| `lsp` | 由应用 Docker daemon 中独立 `lsp-tools` 镜像离线导出依赖，安装到 `/workspace/.toolplane-tools/lsp/<sha256>/`；不改 SDK、不在沙箱 npm/npx，旧沙箱首次授权时按需物化。仅 TS/JS 与 Python 的五种只读查询 |
+| `debug` | Node 使用已有 inspector，Python 还需兼容 `python3`；debugpy 从独立 capture 制品离线校验物化，不在沙箱 pip 安装、不改 SDK。只调试工具自己启动的本回合程序，无远程/PID attach |
+| `task` | 多个子会话共享父沙箱/cwd、模型与权限，并发共享文件，不创建独立隔离 worktree；深度最多一层 |
+
+LSP/debug 依赖完整性校验失败须恢复正确制品，不自动覆盖用户改动。原生 bash 仍可修改同 Agent 的共享文件，这些工具的目录/路径检查不是额外 OS 隔离。不要假设默认资源配额足够所有 Chromium/语言服务工作负载；上线前由部署者在实际沙箱核对 CPU、内存和 PID 限额。
 
 #### 工作区数据生命周期
 
