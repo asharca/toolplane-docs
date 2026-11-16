@@ -3,6 +3,8 @@
 
 本指南面向单所有者 ToolPlane 部署的运维人员，说明运行时恢复、GitHub 插件来源、经审阅的 Pi 能力与只读历史存储；不引入 active-active 执行，也不构成生产迁移授权。
 
+本文新增的 Agent 工具镜像、审批、项目指令与预算/记忆等部署说明，随对应应用 PR 合入后的版本生效；请以目标代码的迁移和镜像工作流为准，不将本文命令示例视为已执行的部署或验收。
+
 ## 升级顺序
 
 1. 备份 Postgres 和托管运行时卷，记录当前版本及恢复流程。数据库与数据卷的恢复是不同操作。
@@ -36,6 +38,65 @@ Docker 构建与运行阶段共用 `python-runtime-base`，确保 Prisma 组装�
 旧 Agent 迁入 Pi 前，先保全原始数据归档。Pi 历史按既有会话修订和恢复规则处理；OMP 历史保留只读，不再恢复执行，转换只创建需要重新授权的 Pi 草稿。Hermes 记录和历史按退役迁移从现役库移除，保存在迁移前的离线归档，不回填为可执行旧会话。为新 Agent 重新应用修订并迁移工作区内的资源绑定，业务文件与旧运行时配置、令牌、数据库连接分开处理。记录创建、修订应用、渠道连接和 readiness 均不能代替执行验收：逐个检查真实模型请求、原生工具调用及其结果，并独立检查所绑定 MCP 的工具发现。旧供应商的模型下架、凭据失效或业务 MCP 不可达必须明确列为阻塞；未经用户明确同意，不能删除绑定后宣称完整迁移。用户允许暂不绑定故障 MCP 或不恢复指定 Agent 时，保留其配置和归档，并在交付中列明排除项。
 
 只读 MCP 容器通过 `uvx` 启动时，除可写的缓存目录外，还需显式设置 `UV_TOOL_DIR` 和 `UV_TOOL_BIN_DIR` 到容器内可写的 `/tmp` 子目录；不要为解决 `/root/.local/share/uv/tools` 写入失败而取消只读根文件系统。环境值仍通过工作区绑定的 MCP 凭据封装保存，修改后重新应用受影响 Agent 的修订。
+
+## Agent 工具镜像部署
+
+应用镜像、Agent 默认沙箱、Pi SDK 捕获、LSP 工具和 debugpy 是不同制品。准备辅助镜像不授予 Agent 工具权限，也不更新已有固定修订。工具使用步骤见[Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md)，环境边界见[Agent 沙箱](./SANDBOXES.zh-CN.md)。
+
+### 默认沙箱镜像与 Chromium
+
+1. 在目标代码中构建 Dockerfile 的 `sandbox` target，或等待 `.github/workflows/sandbox-image.yml` 成功发布。工作流在 main 的 Dockerfile/workflow 变化、发布 tag 或人工触发时构建 `linux/amd64` 镜像；未成功发布前不能假定 GHCR 制品已经存在。
+2. 主仓库产物为 `ghcr.io/asharca/toolplane-sandbox`。确认 package 为 public，或给应用实际连接的 Docker daemon 配置拉取权限；从 workflow summary 取得真实 image digest。
+3. 设置服务端 `TOOLPLANE_DEFAULT_SANDBOX_IMAGE=ghcr.io/asharca/toolplane-sandbox@sha256:<64位小写hex>`。Compose 已透传；非空 override 仅接受 digest，tag 会触发 `SANDBOX_DEFAULT_IMAGE_INVALID`。分叉仓库使用自己的镜像地址和摘要。
+4. 按单所有者流程受控重启，再新建 Agent/默认沙箱。变量未设置/空白时选用 ToolPlane 自有 `:latest` 默认地址，首次修订捕获仍 pull/inspect 固定为 digest；拉取失败明确失败，不回落旧外部镜像。
+
+源码构建示例（在对应应用仓库执行，标签为部署者自定构建产物）：
+
+```sh
+docker build --target sandbox -t toolplane-sandbox:build .
+```
+
+新镜像在 Node 26 开发基础上加入 Chromium 和中文字体，非 root 运行，`TOOLPLANE_CHROMIUM_PATH=/usr/bin/chromium` 是程序路径而非工具授权。已有模板、历史 `environment.image` digest 和容器不自动更换；旧 Agent 需走显式环境审核/迁移或新建 Agent，不能改写历史 pin。开启 browser 的旧/自定义镜像没有 Chromium 时返回 `BROWSER_CHROMIUM_MISSING`。实际默认内存/PID 下启动、截图与多轮回收仍须部署者验收。
+
+### LSP 独立镜像
+
+`lsp-tools` target 将 TypeScript/JavaScript 与 Python 语言服务安装到 `/opt/toolplane-lsp`，只导出独立 `node_modules`。默认镜像为 `ghcr.io/asharca/toolplane-lsp-tools:1`，可用服务器变量 `TOOLPLANE_LSP_TOOLS_IMAGE` 指向相同应用发布标签、固定 digest 或自定义镜像；它不是另一套 Agent 开关。不要把它代替 Pi SDK capture 镜像，也不要向 SDK runtime 写这些依赖。
+
+正式 release 工作流先构建/发布 `lsp-tools`，包含兼容制品格式标签和应用完整发布标签，当前发布平台为 `linux/amd64`。其他架构需按相同 target 自建，不宣称已有 arm64 发布。完整 CI 构建本地工具镜像并显式开启真实 LSP 回归；工作流存在不等于该次发布/测试成功。
+
+标准 Compose 配有一次性 `lsp-tools-image` 准备服务，应用等待它成功退出；它只保证同一 Docker daemon 具有镜像，不运行常驻语言服务。正常更新使用：
+
+```sh
+docker compose pull app lsp-tools-image
+docker compose up -d
+```
+
+这些命令仍须遵循本文备份、停机、迁移和单所有者顺序。非 Compose 部署应在应用连接的 daemon 预先 `docker pull` 所配置镜像；也可从源码构建：
+
+```sh
+docker build --target lsp-tools -t toolplane-lsp-tools:build .
+```
+
+源码构建后将 `TOOLPLANE_LSP_TOOLS_IMAGE` 设为该 daemon 实际具备的本地镜像。发布预检只 inspect 本地镜像并固定 image ID，不在缺镜像时隐式联网拉取。启用 `lsp` 时才离线导出/准备并在沙箱安装到 `/workspace/.toolplane-tools/lsp/<sha256>/`；没有沙箱 npm/npx，不改 SDK digest。缺镜像/导出失败为 `PI_LSP_ARTIFACT_UNAVAILABLE`，摘要/安装损坏为 `PI_LSP_ARTIFACT_INVALID`。复用前校验完整依赖树，篡改时失败关闭，不自动覆盖；先恢复正确产物，再重试。首次导出/安装与完整校验有 I/O 成本，Node/系统 ABI 也须与沙箱兼容。
+
+### debugpy capture companion
+
+Python debug 依赖独立的 `ghcr.io/asharca/toolplane:pi-capture-1.5.2-debugpy-1.8.17-r1`。release 在应用发布前构建 Dockerfile 的 `pi-package-capture` target 并推送该 tag，沿用现有 app GHCR package 的权限；full CI 为相同构建标记 SDK capture 与 debug companion 两个 tag。该独立代次不可用陈旧的 `toolplane-pi-package-capture:1.5.2` tag 冒充。
+
+只在 debug 启用时准备：daemon 缺精确 companion tag 可按现有权限拉取（最多 300 秒），之后解析为不可变 image ID；无网络/只读/非 root capture 容器导出单独 debugpy 制品，校验后由可信宿主文件物化。它不进入 SDK 的 node_modules、archive 或缓存；不需清理/覆盖既有 SDK cache。离线部署须预先把同一 tag 导入该 daemon，其他架构需自行构建并标记同一制品 tag。源码构建示例：
+
+```sh
+docker build --target pi-package-capture \
+  -t ghcr.io/asharca/toolplane:pi-capture-1.5.2-debugpy-1.8.17-r1 .
+```
+
+Python launch 按归档及逐文件摘要安装纯 Python 制品到扩展 host 下的 `.toolplane-tools/debug/<sha256>/`，不在运行沙箱 pip/联网；沙箱仍须预装兼容 `python3`。Node 使用已有 Node inspector。更换 debugpy 内容或导出协议必须增加 companion 代次，不能复用旧 tag。需要核对该发布的镜像确已上传、daemon 拉取权限与真实 Python 断点闭环；缺少依赖不能当作预检成功。
+
+### 迁移、修订与恢复边界
+
+目标应用需先应用其全部对应迁移并生成匹配 Prisma client，再受控启动。新增持久数据包括可选工具草稿、项目指令开关、工具审批策略/记录、记忆、advisor、流式规则、密钥混淆、预算用量观测及 Work 原生节点/分支映射；不要仅升级前端或让旧客户端长期与新 schema 混跑。历史修订不通过回填获得新权限；新项目指令和新 Agent 密钥混淆的默认开启不追溯旧记录。
+
+停止/重启不会回滚工具副作用。运行中控制台插话队列不是持久任务；频道仍依赖 durable ingress 恢复，可能回落到后续普通执行。导出运行中的会话只包含已持久部分；原生文件缺失不通过重放 transcript 修复。记忆删除、上下文 rewind、handoff 与 Work 编辑/重试/分支都不清除已经保留的全部历史或撤销外部效果。
 
 ## 管理员传输调试设置
 
@@ -222,10 +283,10 @@ Agent 设置从**工作区已添加的插件**选择，选择时绑定工作区�
 管理员显式构建可信捕获镜像；同步不会隐式构建：
 
 ```bash
-docker build --target pi-package-capture -t toolplane-pi-package-capture:0.87.1 .
+docker build --target pi-package-capture -t toolplane-pi-package-capture:1.5.2 .
 ```
 
-Pi 捕获要求 runtime owner 已就绪，使用隔离非 root 容器；生产依赖随包冻结，不执行扩展 factory、生命周期脚本、Git hooks 或 pnpmfile。内部归档仅是传输格式，不是 ZIP 上传/发布入口。更新捕获脚本后需重建镜像。SDK 固定 0.87.1，要求 Linux、Node 26，原生快照须匹配执行架构；执行 turn 时不安装插件依赖。
+Pi 捕获要求 runtime owner 已就绪，使用隔离非 root 容器；生产依赖随包冻结，不执行扩展 factory、生命周期脚本、Git hooks 或 pnpmfile。内部归档仅是传输格式，不是 ZIP 上传/发布入口。更新捕获脚本后需重建镜像。当前 SDK 为 1.5.2，要求 Linux、Node 26，原生快照须匹配执行架构；受支持的旧版本标识以代码兼容列表为准，不改写旧修订。执行 turn 时不安装插件依赖。
 
 Conversation、A2A context 和 Work 固定不可变修订及包制品，更新不重写已有引用。无法证明准确引用时返回 `AGENT_REVISION_UNRESOLVED`，保留历史只读；持久会话丢失返回 `PI_SDK_SESSION_MISSING`，需新建会话，不能重放历史伪造恢复。文件/链接篡改以 `PI_PACKAGE_CHECKSUM_MISMATCH` 拒绝执行，扩展加载失败为 `PI_EXTENSION_LOAD_FAILED`。命令保留大小写及 `:1` 冲突后缀；Web 支持原生 RPC UI 对话及文本投影，不转译任意 TUI 自定义组件。
 
@@ -234,17 +295,15 @@ Conversation、A2A context 和 Work 固定不可变修订及包制品，更新�
 
 ## 不可变 Pi SDK 修订
 
-所有可执行 Agent 均使用 **Pi SDK 0.87.1**。Chat、消息渠道、control、Work 和本地
-A2A 统一走固定修订的原生 SDK 入口，不回退直接 Pi CLI、宿主 Agent 循环
-或旧 Harness。其他 Pi 版本会被拒绝，不会安装到活跃 Agent 或代替所选版本。
-原生扩展预检需要固定隔离镜像 `toolplane-pi-package-capture:0.87.1`。
+当前可执行入口使用 **Pi SDK 1.5.2**；代码继续识别受支持的旧 Pi 固定标识，按当前 SDK 执行，不改写原始修订/checksum。Chat、消息渠道、control、Work 和本地 A2A 统一走原生 SDK 入口，不回退直接 Pi CLI、宿主 Agent 循环或旧 Harness。非兼容列表的版本仍拒绝，不在活跃沙箱任意升级。
+原生扩展预检需要固定隔离镜像 `toolplane-pi-package-capture:1.5.2`。
 预检容器只以只读方式挂载暂存的公开辅助脚本，使用独立可写 `/tmp`，不会向只读根文件系统
 复制脚本。原生加载器的命名冲突保留类型化 `PI_CAPABILITY_CONFLICT` 分类。
 `PI_EXTENSION_LOAD_FAILED` 保留有界的分阶段诊断 cause；先检查实际失败阶段，不要直接归因
 于扩展工厂。原生 npm 快照必须匹配执行平台与架构，不能改标签或移植字节冒充兼容。
 Control MCP 只创建原生 `pi-sdk` 草稿；创建不等于执行授权，须明确配置、授权并发布不可变修订。
 
-Pi SDK 执行依赖由 `src/lib/agents/pi-runtime.ts` 从上述固定 digest 镜像离线导出并在创建／发布事务前准备，不依赖聊天时运行包管理器。宿主缓存按版本、架构和镜像摘要隔离；单进程合并并发请求，跨进程使用互斥锁，校验后原子发布。`scripts/pi-sdk-install.mjs` 只接收已准备的本地归档，在 Agent 卷安装前验证完整内容、路径、链接和包版本；运行时不存在才本地分发，部分安装拒绝执行。SDK 缓存不包含 Agent 配置、会话、模型密钥或运行时令牌；升级镜像须重新准备对应制品，不能以另一版本代替固定 0.87.1。
+Pi SDK 执行依赖由 `src/lib/agents/pi-runtime.ts` 从上述固定 digest 镜像离线导出并在创建／发布事务前准备，不依赖聊天时运行包管理器。宿主缓存按版本、架构和镜像摘要隔离；单进程合并并发请求，跨进程使用互斥锁，校验后原子发布。`scripts/pi-sdk-install.mjs` 只接收已准备的本地归档，在 Agent 卷安装前验证完整内容、路径、链接和包版本；运行时不存在才本地分发，部分安装拒绝执行。SDK 缓存不包含 Agent 配置、会话、模型密钥或运行时令牌；升级镜像须重新准备代码指定的对应制品，不能以任意上游新版本替代。
 
 运行时变更流程是 **保存草稿 → Prepare → 审阅 → Apply**：
 
@@ -282,11 +341,9 @@ Agent/Assistant 自动发布只刷新 MCP 授权的新修订；已有会话保�
 
 ## 原生会话与历史运行时边界
 
-平台逐次工具审批及 readiness 握手已移除，确认由已授权的原生 Pi 扩展发起。任务使用
-`/api/v1/agent-runtime/tasks/<task-id>/ui`，专属 Work 使用
-`/api/v1/agent-runtime/sessions/ui`。通道保持仅 HTTP(S)、禁止内嵌凭据/query/fragment、
-禁止重定向、有界响应与 runtime token 校验；每次读写重新验证当前授权与执行租约。
-原生 UI 不能扩大修订、MCP、沙箱或协作授权。
+旧审批 readiness 握手不恢复。固定修订 `toolApproval` 现在可对普通 Work/chat/control/频道根回合逐次审批，批准与精确参数、当前租约和单次消费绑定；A2A 根任务、委派后代与触发器免人工审批（包括 deny 覆盖）并留审计，不是无人值守 deny 安全闸。频道只能由原发起者在原 chat/thread 回复短码，控制台观察卡片不授予决定权。超时/拒绝/通道失败拒绝对应工具，但不是整轮失败。见[工具审批](./AGENT_WORKBENCH.zh-CN.md#工具审批)和[频道工具审批](./AGENT_MESSAGING_PLATFORMS.zh-CN.md#频道工具审批)。
+
+已授权原生 Pi 扩展仍可独立发起确认对话：任务使用 `/api/v1/agent-runtime/tasks/<task-id>/ui`，专属 Work 使用 `/api/v1/agent-runtime/sessions/ui`。通道保持仅 HTTP(S)、禁止内嵌凭据/query/fragment、禁止重定向、有界响应与 runtime token 校验；每次读写重新验证当前授权与执行租约。原生 UI 和工具审批都不能扩大修订、MCP、沙箱或协作授权，也不隔离扩展任意 Node/网络/文件代码。
 
 切换前排空旧任务并备份。应用 `20261102000000_pi_native_ui` 和
 `20261102010000_native_ui_work_cutover`，生成 Prisma 客户端并按单所有者流程重启。
@@ -354,7 +411,7 @@ pnpm test --no-file-parallelism tests/integration/pi-sdk-host.test.ts tests/inte
 | `TOOLPLANE_SMOKE_PERSONAL_TOKEN` | 获准访问这两个本地 A2A 端点的操作者 token，仅放环境变量 |
 | `TOOLPLANE_SMOKE_DATABASE_URL` | 明确指定的本地隔离 PostgreSQL，库名包含 `test`、`acceptance` 或 `disposable` |
 
-两个 Agent 须预先具备活跃的 Pi SDK 0.87.1 已发布修订、固定 digest 环境镜像、可用
+两个 Agent 须预先具备受支持的原生 Pi 已发布修订、固定 digest 环境镜像、可用
 真实模型、入站授权和原生 `bash` 权限。A 须同时具备已发布及实时出站权限，并有
 明确、有界、仅文本的 A → B 授权。应用/runtime owner 和 Docker 须 ready，不能在
 运行中修改配置或授权强行制造通过结果。

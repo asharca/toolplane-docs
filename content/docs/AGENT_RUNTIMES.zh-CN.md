@@ -1,9 +1,11 @@
 # Agent 运行时实现：原生 Pi SDK
 
 
-ToolPlane 使用官方 `AgentSession` 的 **Pi SDK 0.87.1**，在 Agent 专属 Docker 沙箱中执行。GitHub 插件来源、所有权与恢复流程见[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md)。
+ToolPlane 使用官方 `AgentSession` 的 **Pi SDK 1.5.2**，在 Agent 专属 Docker 沙箱中执行；受支持的旧 Pi 固定版本标识按代码中的兼容列表继续运行，不改写历史修订。GitHub 插件来源、所有权与恢复流程见[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md)。
 
 OMP、普通 Pi CLI、Claude Code、DSH 和旧 Harness 均已退役，不是可选执行器或恢复降级方案。历史消息、修订和绑定文件保留只读；转换创建需要显式授权的全新 Pi 草稿，不恢复旧会话，也不继承旧凭据或执行授权。
+
+本文新增的项目指令、可选工具、模型路由、审批与上下文维护说明，随对应应用 PR 合入后的版本生效，不代表旧部署已支持。日常操作与各项限制统一见[Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md)。
 
 ## 1. 配置不等于执行授权
 
@@ -15,7 +17,7 @@ OMP、普通 Pi CLI、Claude Code、DSH 和旧 Harness 均已退役，不是可�
 
 控制台新建向导最后的**创建并启用**是一次明确授权：用户已选择模型、技能、能力包和工具并看到配置摘要，提交后自动准备和应用首个不可变版本，成功直接进入可输入的工作页，不再要求去设置重复启用。准备期间显示检查进度；任何权限、依赖或能力预检失败都在原表单反馈并保留输入，Agent、默认沙箱与首个版本一并回滚，不留下创建成功但无法使用的半成品。准备通过不代表已执行任务，仍由用户发送消息才开始执行。
 
-Pi SDK 在创建／发布前准备：从固定 digest 的 `toolplane-pi-package-capture:0.87.1` 镜像离线导出 SDK 与完整生产依赖，校验后存入服务进程用户的 `~/.cache/toolplane/pi-sdk/0.87.1/linux-<架构>-node26/<镜像摘要>/`。并发准备复用同一制品，缓存不包含会话或凭据。首次使用的 Agent 卷通过受跟踪流接收内部归档，校验字节、路径、链接与包版本后原子安装；聊天不运行 pnpm，也不访问 npm。专用安装进程使用固定大小的复用缓冲区复制和校验文件，避免为上万个小文件反复创建读写流，不省略归档与安装后完整性校验。后续轮次检查安装状态并复用 SDK，已有不完整安装明确失败，不静默覆盖。
+Pi SDK 在创建／发布前准备：从固定 digest 的 `toolplane-pi-package-capture:1.5.2` 镜像离线导出 SDK 与完整生产依赖，校验后存入服务进程用户的 `~/.cache/toolplane/pi-sdk/1.5.2/linux-<架构>-node26/<镜像摘要>/`。并发准备复用同一制品，缓存不包含会话或凭据。首次使用的 Agent 卷通过受跟踪流接收内部归档，校验字节、路径、链接与包版本后原子安装；聊天不运行 pnpm，也不访问 npm。专用安装进程使用固定大小的复用缓冲区复制和校验文件，避免为上万个小文件反复创建读写流，不省略归档与安装后完整性校验。后续轮次检查安装状态并复用 SDK，已有不完整安装明确失败，不静默覆盖。
 
 容器化应用从自身读取可信 SDK 安装器，经 stdin 交给无网络、只读根文件系统的固定镜像执行，不把应用内部脚本路径交给宿主 Docker daemon 做 bind mount。该导出不需要共享脚本目录；独立的原生能力预检仍遵循运维文档的专用 `TMPDIR` 挂载要求。
 
@@ -137,17 +139,35 @@ Work 通过现有输出快照和 SSE `stage` 事件恢复当前阶段；Pi 使�
 
 ## 5. 原生守护进程与请求 context
 
-[`native-runtime-session.mjs`](../scripts/native-runtime-session.mjs) 只接受 `pi-sdk`，按私有状态路径哈希生成沙箱内 Unix socket，同一时间只允许一个请求，其他请求返回 `PI_SDK_BUSY`。它跨 turn 保留 SDK 子进程，处理停机、socket 断开和配置签名变化。守护进程重启不等于允许重放中断任务。
+[`native-runtime-session.mjs`](../scripts/native-runtime-session.mjs) 只接受 `pi-sdk`，按私有状态路径哈希生成沙箱内 Unix socket，同一时间只允许一个执行请求，其他执行请求返回 `PI_SDK_BUSY`。运行中的插话/追问/清空使用绑定具体 runId 的第二条控制连接，不抢占或结束原执行连接。它跨 turn 保留 SDK 子进程，处理停机、socket 断开和配置签名变化；控制注册表仍受单 owner/单进程拓扑限制，不提供跨主机 pub/sub。守护进程重启不等于允许重放中断任务。
 
-[`pi-sdk-session.mjs`](../scripts/pi-sdk-session.mjs) 加载固定 SDK，使用明确资源构建官方会话服务，关闭默认扩展、Skill、prompt、theme 和 context file 的自动发现。模型凭据仅在请求期间保存在内存；每次请求刷新 runtime token、MCP context 与原生 UI 通道，结束后清理请求凭据。缺少 context 返回 `PI_SDK_CONTEXT_REQUIRED`；原生工具定义变化返回 `PI_SDK_TOOLSET_CHANGED`，不静默改变保留会话。上下文压缩使用 Pi 原生自动压缩，不另建摘要或历史状态机。
+[`pi-sdk-session.mjs`](../scripts/pi-sdk-session.mjs) 加载固定 SDK，使用明确资源构建官方会话服务，关闭默认扩展、Skill、prompt、theme 和无界 context file 自动发现。模型凭据仅在请求期间保存在内存；每次请求刷新 runtime token、MCP context 与原生 UI 通道，结束后清理请求凭据。缺少 context 返回 `PI_SDK_CONTEXT_REQUIRED`；不受支持的原生工具定义变化返回 `PI_SDK_TOOLSET_CHANGED`，不静默改变保留会话。受控可选工具列表变化则通过宿主签名在下一轮重载。上下文压缩使用 Pi 原生自动压缩，不另建摘要或历史状态机。
 
 结构化事件走专用文件描述符。扩展 stdout/stderr 不是可信协议通道，不能伪造 broker 结果。数据库消息持久化和 UI/Work 生命周期由调用方负责，不由低层执行器代办。
+
+### 有界项目指令文件
+
+固定修订 `contextFiles` 控制项目指令读取。新 Agent（含创建为新草稿的复制）默认开启；旧 Agent 草稿和历史修订缺省关闭，修改草稿不影响已有固定会话。开启时保留 SDK 的 `noContextFiles: true`，通过 `agentsFilesOverride` 提供受控结果，避免 SDK 一直向文件系统根读取。
+
+读取顺序为宿主 `agentDir`，再从 `workspaceRoot` 到 `cwd` 的祖先链（含两端），每目录最多选择一个文件，优先级为 `AGENTS.override.md`、`AGENTS.md`、`AGENTS.MD`、`CLAUDE.md`、`CLAUDE.MD`。不扫描子目录、兄弟会话或根界限之外的祖先；真实路径去重，逃出允许目录集合的符号链接跳过。内容进入 Pi 原生 `project_context`，用量归入 `instructionFiles`。
+
+这些是可写项目文件，不是不可变资源快照；reload/新宿主重新发现，无文件监控、递归发现或 OMP 配置自动映射。它是指令加载选择，不是 native shell 的安全边界。
+
+### 可选工具的授权与加载
+
+`optionalBuiltinTools?: string[]` 缺省视为 `[]`，不回填旧修订或修改 checksum；新建/克隆为新 Agent 默认关闭。唯一注册表区分 `sandbox-extension` 与 `platform`，只接受已有真实实现的注册名，与默认工具的 `disabledBuiltinTools` 分离。新增权限进入既有 builtin 审核。
+
+沙箱扩展按可信源码物化、离线预检，源码和有效列表加入宿主签名；平台工具走任务 MCP bridge，每次调用重查 grant、租约、固定修订和实时草稿交集，不依赖 A2A 出站开关。目录位置固定不等于实时授权，撤销后平台调用返回 `OPTIONAL_BUILTIN_TOOL_FORBIDDEN`，不把工具失败提升为整轮失败。沙箱扩展移除在下一轮生效，不中断在途代码。当前工具清单及依赖见[工作台指南](./AGENT_WORKBENCH.zh-CN.md#启用可选内置工具)。
 
 ## 6. 受控 broker 与隔离边界
 
 模型请求走 ToolPlane 的凭据化模型代理 `/api/v1/agent-runtime/model/{providerId}`，不把真实上游密钥交给扩展配置。运行时 grant 是范围受限的凭据，不是个人 API Token 或桌面安装 Token。代理重新校验当前资源关系，上游凭据由平台管理。不要将 runtime token、provider key 或数据库凭据暴露到提示词、日志或 issue 附件。
 
-平台不再注入逐次工具审批或审批 readiness 握手；是否询问用户由已授权的 Pi 扩展决定，`ctx.ui.confirm/select/input/editor` 使用原生 RPC 请求和响应。通用任务通过 `/api/v1/agent-runtime/tasks/<task-id>/ui`，专属 Work 通过 `/api/v1/agent-runtime/sessions/ui` 传递交互。通道只允许 HTTP(S)、无内嵌凭据/query/fragment、禁止重定向，并校验 runtime token、操作人、工作区与当前执行租约。重复、过期、跨租约或已撤权的响应不能继续执行；无 UI 通道时保持非交互 JSON 模式。
+固定修订 `secretObfuscation` 开启时，统一模型网关在出站文本/结构化 JSON 中替换已登记且实时有效的环境凭据，并且仅在入站结构化工具参数中还原；正文/推理保留标识符。新 Agent 默认开启，旧记录与历史缺省关闭。覆盖范围仅限 `environment.credentialReferences` 中长度至少 8 字符的授权值，不扫描未知环境变量、文件、二进制或图片，也不重写本地历史。细节见[工作台指南的密钥混淆说明](./AGENT_WORKBENCH.zh-CN.md)。
+
+固定修订 `toolApproval` 提供 `off/write/exec/all` 与按实际工具名的 `ask/allow/deny` 覆盖。普通 Work/chat/control/频道根入口受策略控制；A2A 根任务、委派后代和触发器免人工审批，即使 deny 覆盖也自动放行并留审计。普通会话通过带工作区/会话鉴权的 `tool-approvals` 接口决定，频道通过原发送者在原 chat/thread 的 `/approve`、`/deny` 短码决定；两者不能互相代替。精确参数绑定、有效租约、最长 120 秒与单次消费共同约束执行，拒绝/超时是失败工具结果而非整轮失败，未提供“总是允许”。操作见[工具审批](./AGENT_WORKBENCH.zh-CN.md#工具审批)。
+
+审批不同于 Pi 扩展自己发起的 `ctx.ui.confirm/select/input/editor` 原生对话。后者仍经原生 RPC：通用任务使用 `/api/v1/agent-runtime/tasks/<task-id>/ui`，专属 Work 使用 `/api/v1/agent-runtime/sessions/ui`。通道只允许 HTTP(S)、无内嵌凭据/query/fragment、禁止重定向，并校验 runtime token、操作人、工作区与当前执行租约。重复、过期、跨租约或已撤权的响应不能继续执行；无 UI 通道时保持非交互 JSON 模式。旧审批 readiness 握手不恢复。
 
 MCP 工具必须同时位于不可变修订授权和当前显式工具 allowlist 内。会话 broker 校验固定镜像/recipe 和实时授权后懒启动隔离 sidecar；共享 deployment 停止不意味着可以丢弃有效固定 recipe，也不能借用共享进程。协作同样取固定/实时入站出站权限交集，并执行明确有界目标授权、工作区/操作者范围及循环/深度限制。
 
@@ -161,7 +181,7 @@ MCP 工具必须同时位于不可变修订授权和当前显式工具 allowlist
 
 ## 7. 原生预检、包与命令
 
-Prepare/发布在固定隔离捕获镜像 `toolplane-pi-package-capture:0.87.1` 中使用真实 SDK loader，不靠扩展工厂源码文本猜测能力。原生命名空间检查覆盖工具、命令、Skill、prompt 及保留的生成 MCP 名称。冲突保留类型化 `PI_CAPABILITY_CONFLICT`；所选扩展加载失败保留 `PI_EXTENSION_LOAD_FAILED` 和有界阶段诊断。不静默丢弃冲突扩展或替换版本。
+Prepare/发布在固定隔离捕获镜像 `toolplane-pi-package-capture:1.5.2` 中使用真实 SDK loader，不靠扩展工厂源码文本猜测能力。原生命名空间检查覆盖工具、命令、Skill、prompt 及保留的生成 MCP 名称。冲突保留类型化 `PI_CAPABILITY_CONFLICT`；所选扩展加载失败保留 `PI_EXTENSION_LOAD_FAILED` 和有界阶段诊断。不静默丢弃冲突扩展或替换版本。
 
 冻结快照包含依赖，执行和 reload 前完整验证字节与链接；篡改在 turn 执行前返回 `PI_PACKAGE_CHECKSUM_MISMATCH`。原生快照必须匹配执行平台/架构。启动不安装插件依赖、不执行包管理器 hooks，也不将发现任意用户配置作为降级方案。
 
@@ -174,15 +194,21 @@ UI 请求和持久展示投影上限为 256 KiB，最多 32 个待答对话和 6
 
 在自己拥有且空闲的会话发送 `/compact` 或 `/compact <自定义指令>`，对同一保留会话调用原生 `session.compact()`，须等待持久化的原生结果。绑定忙碌时拒绝第二个 writer；失败不回退宿主摘要或 CLI 压缩。渠道命令要求稳定 transport 消息 ID 去重；已鉴权会话命令生成原生回执 ID。Work 命令仍由 coordinator 管理。
 
+`/handoff [focus]` 是始终可用的宿主命令，不依赖可选工具；它在空闲非空会话中通过原生 compact 生成并提交交接文档，失败/取消不写成功标记。可选 `checkpoint/rewind/context_notes` 管理当前原生树上下文与分支笔记，旧树及平台历史保留；都不回退文件或外部副作用。详见[工作台指南的上下文维护说明](./AGENT_WORKBENCH.zh-CN.md)。
+
 ## 8. 取消、排空与历史策略
 
 取消停止绑定原生进程和会话 MCP sidecar，不删除持久工作卷。Docker 操作接入运行时所有权与取消跟踪。终止是有界清理，不是任意工具副作用的回滚。未知副作用和远端 ACK 保持未知，不能重放任务制造完成结果，也不承诺远端 exactly-once。会话/沙箱忙碌时，未领取的委派工作保持排队，直到正常租约重新可用。
 
 单个工具调用失败（例如 shell 命令以非零状态退出）只是一条失败的工具结果，模型读到后继续处理，不会让本轮失败。模型请求失败、用户停止或 UI 传输失败时，本轮以 `PI_SDK_MODEL_FAILED` / `PI_SDK_ABORTED` / `PI_SDK_UI_FAILED` 结束，但已写入的原生会话历史会保存，下一条消息在同一会话里继续，不会变成 `PI_SDK_SESSION_MISSING`，也不会重放这一轮。
 
-单次模型请求失败时，宿主按工作区设置 **模型请求重试**（`Workspace.modelRetryAttempts`，0–10，默认 3，工作区成员均可修改）在本轮内原地重试，退避为 2s、4s、8s…。每轮开始时读取当前值，不进入修订，也不重启常驻宿主。可重试的失败沿用 Pi 0.87.1 的瞬时错误判定（限流、5xx、超时、连接中断、流未结束等），另外加入网关已返回 HTTP 200、却在流中报告上游空响应的情况（例如 sub2api 的 `empty_stream`）。失败的那次请求保留在原始历史中，但不会作为 assistant 回合重新发给模型；它没有执行任何工具，因此不会重复执行工具。
+单次模型请求失败时，宿主按工作区设置 **模型请求重试**（`Workspace.modelRetryAttempts`，0–10，默认 3，工作区成员均可修改）在本轮内原地重试，退避为 2s、4s、8s…。每轮开始时读取当前值，不进入修订，也不重启常驻宿主。可重试的失败沿用 Pi 的瞬时错误判定（限流、5xx、超时、连接中断、流未结束等），另外加入网关已返回 HTTP 200、却在流中报告上游空响应的情况（例如 sub2api 的 `empty_stream`）。失败请求保留在原始历史，但不作为 assistant 回合重新发给模型；重试在 SDK 请求恢复边界进行，不重新提交用户 prompt。
 
-重试用尽或遇到不可重试的错误时，返回固定原因并附带已重试次数，例如 `PI_SDK_MODEL_FAILED: EMPTY_STREAM RETRIED_3`。原因只来自白名单：`HTTP_nnn`、`UNREACHABLE`、`TIMEOUT`、`EMPTY_STREAM`、`STREAM_INCOMPLETE`、`CONTENT_FILTER`、`PROVIDER_ERROR`；供应商原文不会离开宿主。控制台会把它翻译成可操作的提示。重试次数计入任务总时限。
+同模型重试耗尽后，固定修订 `fallbackModels` 可按顺序尝试最多三个精确 provider/model 对，每个独立使用同模型重试预算；本轮一旦出现任何 `tool_execution_start` 就不再切换兜底，避免重放已有或未知副作用。鉴权/非瞬态 4xx、取消及全局任务截止不兜底；下一轮重新选择准入主模型。`roleModels.compaction/title` 分别服务原生压缩与会话命名，缺省沿用主模型；额外 provider/model 必须在固定授权中精确列出，且每次检查实时目录/凭据。实际应答模型通过既有 `data-agent-turn-model` 展示，用量按真实模型分别计价，不把兜底变成全局默认。
+
+所有可用模型仍失败或错误不可重试时，返回固定原因并附带最后实际模型的同模型重试次数，例如 `PI_SDK_MODEL_FAILED: EMPTY_STREAM RETRIED_3`。原因只来自白名单：`HTTP_nnn`、`UNREACHABLE`、`TIMEOUT`、`EMPTY_STREAM`、`STREAM_INCOMPLETE`、`CONTENT_FILTER`、`PROVIDER_ERROR`、`GATEWAY_ERROR`；供应商原文不会离开宿主。`GATEWAY_ERROR` 表示 ToolPlane 网关内部处理失败，不能归因于供应商。重试计入任务总时限，SDK 内部恢复/压缩方法变化须重新验证。
+
+Advisor 是固定修订的可选被动文本审查，建议经 steer 或单次 final follow-up 反馈，不授予工具/审批权；流式规则可对正文提醒、对工具调用提醒或阻止，但不是代码隔离或回滚。月预算告警只记录运行中首次越线，不取消已准入任务；达到预算仍阻止新回合。配置、用量和限制统一见[工作台指南](./AGENT_WORKBENCH.zh-CN.md)。
 
 单一 runtime owner 完成恢复后才接受执行。所有权丢失停止新工作；停机停止 coordinator/broker，排空或中止跟踪操作，最后释放所有权。不确定清理保留 dirty marker。HTTP liveness 不等于 readiness，换数据库/domain 或删除恢复标记不是接管流程。遵循[运行时运维](./RUNTIME_OPERATIONS.zh-CN.md)，包括准确且仅用于一次重启的恢复 ACK 要求。
 
