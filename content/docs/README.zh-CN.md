@@ -1,16 +1,18 @@
 # ToolPlane 文档
 
-从[项目介绍与快速开始](../README.md)入门，按下面的主题继续阅读。
+先按[应用仓库的当前快速开始](https://github.com/asharca/ToolPlane#快速开始)部署，再阅读[Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md)。本站的[迁移时项目介绍](../README.md)是历史快照，不作为当前安装与配置依据。
 
 ## 文档网站
 
 访问 [ToolPlane 中文开发文档](https://asharca.github.io/toolplane-docs/docs/zh/)；英文入口为 `/toolplane-docs/docs/en/`，只有真实英文原文，不生成占位翻译。站点无需登录，独立于应用部署。当前内容对应开发分支，不代表线上稳定版；阅读前核对所用代码版本。中文站按以下分类组织：
 
+本轮整理对照 ToolPlane **0.39.0** 的代码基线 [`9c6f9d8`](https://github.com/asharca/ToolPlane/commit/9c6f9d8487850979465fa10b80b33717a1599b43)。这是源码对应关系，不代表任一实例已经升级或完成运行验收。
+
 - **用户文档**：安装、配置、集成与日常运维。
 - **开发者文档**：架构、运行时实现、贡献与发布维护。
 - **API 文档**：协议与接入说明。独立文档站不再提供交互式 API 参考页；运行中应用的 `/docs-api` 和 `/api/v1/openapi.json` 描述该实例自身版本。
 
-网站采用 [Fumadocs](https://fumadocs.dev) 提供导航、响应式布局和全文搜索，正文复用安全的 Streamdown 渲染 Markdown、代码和 Mermaid。Fumadocs 在 `/docs/search` 生成静态搜索索引，内置搜索框在浏览器本地搜索并按当前语言与分类过滤。相对 Markdown 链接保留目标文档的语言，其他仓库文件链接指向 GitHub；共享链接解析位于 `src/lib/docs-links.ts`。
+网站采用 Fumadocs 官方布局与 MDX 编译，渲染 Markdown、代码和 Mermaid；静态搜索索引由浏览器本地检索。相对 Markdown 链接保留目标文档的语言，其他应用源码链接指向 GitHub。站点实现与维护流程见[文档编写指南](./DOCS_AUTHORING.zh-CN.mdx)和[文档仓库说明](https://github.com/asharca/toolplane-docs#readme)。
 
 公开文档的唯一维护源是 [`asharca/toolplane-docs`](https://github.com/asharca/toolplane-docs) 的 `content/`。主题放在 `content/docs/`，图片与示例配置一并维护；不再编辑 ToolPlane 主仓库中的旧文档正文。迁入的项目 README 与 CHANGELOG 是带来源记录的历史快照，不会自动同步；应用仓库根 README 和自动生成的 CHANGELOG 仍在应用仓库维护。
 
@@ -39,6 +41,7 @@
 | [远程 A2A Agent](./A2A_REMOTE_AGENTS.zh-CN.md) | 注册、出站授权、远程委派与恢复 |
 | [原生 A2A 1.0](./A2A_NATIVE.zh-CN.md) | 标准任务、事件订阅与发布授权 |
 | [A2A 内部协作](./A2A_LOCAL_COLLABORATION.zh-CN.md) | 本地身份、原生委派、父任务等待与恢复 |
+| [统一入口与原生 Pi 交互](./A2A_INGRESS_APPROVALS.zh-CN.md) | 普通入口准入、任务与会话映射、工具审批与原生对话边界 |
 | [消息渠道](./AGENT_MESSAGING_PLATFORMS.zh-CN.md) | Telegram、飞书、QQ、微信、Discord、Slack；频道短码审批与运行中追问 |
 
 ## 部署与维护
@@ -49,11 +52,10 @@
 | [日志与审计](./OBSERVABILITY.zh-CN.md) | 日志模型、诊断抓取与保留策略 |
 | [版本发布](./RELEASES.zh-CN.md) | release-please 发布流程与 GitHub 配置 |
 | [共享 UI](./UI_LIBRARY.zh-CN.md) | 原版 beUI Registry 源码接入 |
+| [文档编写与类型选择](./DOCS_AUTHORING.zh-CN.mdx) | 唯一正文来源、适用版本、链接与 MDX 组件 |
 
 ## 维护约定
 
 - 每个主题维护唯一内容来源，并在本索引登记；其他位置链接到现存文档，不恢复已删除的旧专题或翻译副本。
 - 行为以代码为准；跨仓库的功能变更应关联代码 PR 与文档 PR，并说明适用版本。结构图和流程图优先使用 Mermaid。
 - 新专题放在 `content/docs/`，中文使用 `TOPIC_NAME.zh-CN.md`，开头说明用途与读者。
-
-- [统一入口与原生 Pi 交互](./A2A_INGRESS_APPROVALS.zh-CN.md)

@@ -1,6 +1,6 @@
 # Agent 消息平台
 
-本文新增的运行中追问与工具短码审批，随对应应用 PR 合入后的版本生效；旧部署不因文档发布自动获得能力。Work 侧其他操作见[Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md)。
+本文按应用 main（0.39.0）的代码契约整理，覆盖运行中追问与工具短码审批；旧部署不因文档发布自动获得能力，也不代表真实平台投递已验收。Work 侧其他操作见[Agent 工作台与工具](./AGENT_WORKBENCH.zh-CN.md)。
 
 ## 频道管理
 
@@ -116,6 +116,14 @@ toolbar** 项可以固定/取消固定动作、拖拽按钮排序、恢复默认
 
 命令通过固定修订的原生 SDK 执行，不在宿主机侧模拟。Work 命令与普通轮次使用相同的协调器、实时授权和独立会话沙箱；原生 daemon 在轮次间保留会话状态，恢复以原生会话文件为准。压缩改变该原生会话的活动上下文，`/new` 另起一个会话；不重放旧平台历史来恢复执行。命令输出作为普通助手回复存储和渲染，支持复制（包括旧命令记录）；控制类读数不进入模型上下文。
 
+## 触发器结果投递
+
+定时或 Webhook 触发器可选择“将结果发送到频道”：目标是同一 Agent 已绑定的原生频道连接（飞书、Telegram、QQ、微信、Discord、Slack）中的一个 Chat ID。表单列出该连接最近频道会话中的目标供选择，也可手动填写；在目标会话发送 `/whoami` 可查看 Chat ID。保存时校验连接属于同一工作区、绑定到该 Agent 且支持原生传输，否则返回 `INVALID_TRIGGER_DELIVERY`。配置与手动运行仍限工作区所有者或管理员；保存成功不证明上游 Chat ID 可达。
+
+运行结算后，最终回复（失败时为 `Trigger "<名称>" failed (<错误码>).`）通过正在运行的频道连接主动发出；空回复或静默回复记为“已跳过”。频道不可用时由每 15 秒运行的调度器重新尝试，等待达到 10 分钟后记为 `CHANNEL_UNAVAILABLE`；已尝试发送但平台报错记为 `TRIGGER_DELIVERY_FAILED`，不自动重试以避免重复消息。发送时连接已删除、改绑或不再支持原生传输记为 `TRIGGER_DELIVERY_TARGET_INVALID`；重启恢复发现停留在发送中则记为 `TRIGGER_DELIVERY_INTERRUPTED`。投递状态独立于运行状态，投递失败不会把运行标记为失败，也不承诺跨重启 exactly-once。
+
+每次获准创建的触发器运行新建会话，Work 侧栏把它们收进各 Agent 下默认折叠的“触发器”文件夹，可在现有会话权限范围内继续追问。投递记录保存的是触发器最近一次运行的状态，不是逐条消息的持久发件箱；较早运行迟到的结算不能覆盖最新运行的结果或投递。
+
 ## 职责划分
 
 平台频道层负责：
@@ -177,7 +185,7 @@ Agent 的目标收到一个停止的草稿。重启失败会回滚原绑定。
 平台目录在 `src/lib/agents/platforms.ts`。每个条目包含 `setupFlow`、凭据字段、配置步
 骤、连接模式，以及是否真的需要公网回调 URL。
 
-示例：
+以下为平台目录的流程描述，**不是当前原生适配器支持清单**。当前内置运行仅支持上文六种平台；其他条目、别名及历史配对契约不表示存在可启动的 runner，自定义集成须另行实现并鉴权。
 
 | 平台 | 流程 | 用户第一步 | 需要公网回调？ |
 | --- | --- | --- | --- |
@@ -211,16 +219,14 @@ create channel -> request QR -> user scans -> poll provider -> save credentials 
 短期配对会话存进频道配置，渲染返回的二维码内容，并轮询平台等待扫码完成。提供方返回
 凭据后，ToolPlane 将其加密存到频道上。
 
-当前活跃的扫码提供方：
+保留的扫码端点契约如下（企业微信旧配对代码不代表当前原生 runner 可启动；当前飞书设备扫码流程见上文）：
 
 | 平台 | 二维码请求 | 轮询结果 | 保存的凭据 |
 | --- | --- | --- | --- |
 | 企业微信 | `work.weixin.qq.com/ai/qc/generate` | `work.weixin.qq.com/ai/qc/query_result` | `WECOM_BOT_ID`、`WECOM_SECRET` |
 | 微信 | `ilink/bot/get_bot_qrcode` | `ilink/bot/get_qrcode_status` | `WEIXIN_ACCOUNT_ID`、`WEIXIN_TOKEN`、`WEIXIN_BASE_URL` |
 
-WhatsApp、Signal、元宝等 bridge 平台使用相同的 UI 契约，但仍需要一个 ToolPlane 设置
-runner 来启动原生 bridge、接收其二维码/链接事件并向频道回报完成。标记为
-`requiredAt: "start"` 的凭据在频道首次创建时不需要；在托管 runner 启动前必须提供。
+WhatsApp、Signal、元宝等 bridge 平台的目录描述仍需额外集成实现，当前应用没有为其提供可启动的原生 bridge runner。`requiredAt: "start"` 仅表示目录凭据的阶段要求，不能据此推断已具备接收消息、配对或投递能力。
 
 ## 端点
 
@@ -314,7 +320,7 @@ POST /api/v1/agent-channels/:connectionId/events?token=<toolplane-channel-token>
 
 该助手轮次仍会持久化在会话记录中。
 
-## 支持的平台 slug
+## 平台目录 slug（不等于原生运行支持）
 
 - `api`
 - `webhooks`

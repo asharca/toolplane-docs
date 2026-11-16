@@ -1,7 +1,7 @@
 # 原生 A2A 任务服务
 
 
-现在也可以在 **Agent 设置 → A2A 接入** 中开启服务、创建凭据和复制示例，见[控制台指南](A2A_CONSOLE.zh-CN.md)。
+本文记录公共 Endpoint 的 A2A 协议与历史管理契约，**当前不能启用公共执行**。使用私人 Pi Agent 的本地协作请看[控制台指南](A2A_CONSOLE.zh-CN.md)和[内部协作](A2A_LOCAL_COLLABORATION.zh-CN.md)，不要按历史公开服务示例尝试发布。
 
 本功能使用 A2A **1.0** 网络协议，依赖精确锁定的官方 `@a2a-js/sdk@1.2.0`。
 协议版本与 SDK 版本不同。依据 [A2A 规范](https://a2a-protocol.org/latest/specification/)
@@ -10,14 +10,9 @@
 ## 新架构，而不是 Responses 接口改名
 
 ```text
-外部 A2A 客户端
-  → A2A 身份与显式发布授权
-  → 官方 JSON-RPC 解码 / 编码
-  → NativeA2AHandler
-  → A2AContext / A2ATask / A2ARequest / A2AEvent
-  → 独立持久任务 Worker
-  → TaskExecutor 运行时端口
-  → 隔离的发布版本执行环境
+保留的公共协议层：外部 A2A 客户端 → Endpoint 凭据 → 官方 JSON-RPC → 任务查询／历史／取消
+当前公共执行边界：新消息／续写 → 拒绝，不创建任务或分配运行时
+当前本地执行链路：账户级授权 → 本地 Agent 准入 → 固定 Pi 修订 → Agent 沙箱
 ```
 
 任务核心不调用 `prepareAgentResponse`、`executePreparedAgentResponse`、旧内部协作
@@ -28,8 +23,7 @@ Context 可以包含多个 Task；它绑定调用身份、发布版本和独立�
 
 ## 显式开启
 
-先在控制台发布一个有效的公共 Agent Endpoint。默认 `a2aEnabled=false`，不会自动公开
-工作区 Agent。使用工作区所有者或管理员的**账户级 Bearer Token**调用管理入口：
+以下是保留的管理请求形状，不是当前可执行的启用步骤。`enabled: true` 在创建客户端或密钥前返回 `runtime_unsupported`；关闭与撤销已有凭据仍遵循管理授权。入口要求工作区所有者或管理员的**账户级 Bearer Token**：
 
 ```bash
 curl "$TOOLPLANE_URL/api/v1/workspaces/$WORKSPACE/agents/$AGENT_ID/a2a" \
@@ -38,9 +32,7 @@ curl "$TOOLPLANE_URL/api/v1/workspaces/$WORKSPACE/agents/$AGENT_ID/a2a" \
   -d '{"enabled":true,"clientName":"External A2A integration"}'
 ```
 
-响应中的 `token` 只返回一次，保存到服务端秘密存储；不要放在提示词、日志、前端或仓库。
-指定 `clientName` 会创建新的客户端，**此管理操作不是幂等的**。响应丢失时先检查公共服务
-客户端列表，不能盲目重复创建。只切换开关时省略 `clientName`。关闭使用 `{"enabled":false}`。
+历史成功创建的响应只返回一次 `token`，应保存在服务端秘密存储，不放在提示词、日志、前端或仓库。客户端和密钥创建不是幂等操作，响应不确定时先查询，不盲目重试。当前版本不会因下列协议说明重新开放创建／启用；关闭使用 `{"enabled":false}`。
 服务凭据、Toolkit Token、运行 Token、Cookie 均不能用来批准自己的发布。
 
 新客户端只有 `a2a:send`、`a2a:read`、`a2a:cancel`，取消同时要求读取权限。
@@ -61,6 +53,8 @@ well-known 文档改成自定义 Agent 数组。Card 地址来自部署者配置
 不能由不可信 Host Header 决定；非 loopback 部署默认要求 HTTPS，平台管理员可通过[传输调试设置](RUNTIME_OPERATIONS.zh-CN.md#管理员传输调试设置)允许显式 HTTP。
 Card 只含公开名称、服务修订、能力、地址和鉴权声明，不含提示词、Provider、内部工具或凭据。
 
+下面仅保留 `SendMessage` 请求格式；当前公共入口拒绝新执行，不会返回成功 Task：
+
 ```bash
 curl "$TOOLPLANE_URL/api/v1/agent-endpoints/$ENDPOINT_ID/a2a" \
   -H "Authorization: Bearer $A2A_TOKEN" \
@@ -72,13 +66,12 @@ curl "$TOOLPLANE_URL/api/v1/agent-endpoints/$ENDPOINT_ID/a2a" \
   }}'
 ```
 
-返回标准 `result.task`，状态是 `TASK_STATE_SUBMITTED` 等官方枚举，不是旧 Response ID。
-默认 `returnImmediately=false` 等待任务终结或要求输入/授权；连接断开不会取消已接受任务。
+成功执行时的历史契约返回标准 `result.task`，状态使用 `TASK_STATE_SUBMITTED` 等官方枚举，不是旧 Response ID；当前公共入口不会产生这类新任务。查询和订阅保留任务时仍须检查标准状态，不能把建立连接视为任务完成。
 
 | 标准方法 | 实现 |
 | --- | --- |
-| `SendMessage` | 原子接受、可立即返回、相同 messageId 同内容去重 |
-| `SendStreamingMessage` | Task 快照、状态更新、最终 Artifact 更新 |
+| `SendMessage` | 公共入口拒绝新消息和续写，不创建任务 |
+| `SendStreamingMessage` | 公共入口拒绝新执行，不产生新的执行流 |
 | `GetTask` | 当前身份范围内查询；historyLength=0 不返回历史 |
 | `ListTasks` | 状态时间倒序、带签名且绑定查询/身份的游标分页 |
 | `CancelTask` | 请求停止，执行器结束后才确认取消；已完成等终态不可取消 |
