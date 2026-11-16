@@ -4,10 +4,11 @@
 面向外部 Agent 和客户端集成者。适配入口直接使用原生 A2A 的 Handler、Task、权限与执行器，
 不调用旧 Responses API，也不另外保存一套 MCP 任务。
 
+**当前没有可用的公共 Endpoint 执行适配器。** 启用公共 A2A 返回 `runtime_unsupported`，本 MCP 桥接也不能绕过该限制；`a2a_send_message` 不会创建新执行。本文保留历史凭据、读取／取消和协议请求形状。要调用私人 Pi Agent，请使用独立的[Agent Control MCP](AGENT_CONTROL_MCP.zh-CN.md)或[本地 A2A](A2A_LOCAL_COLLABORATION.zh-CN.md)，两者的账户令牌不能混用于本端点。
+
 ## 接入
 
-先按[控制台指南](A2A_CONSOLE.zh-CN.md)发布、启用对外 A2A，创建专用客户端。使用服务器端
-MCP 客户端连接以下 Streamable HTTP 地址，并安全配置 `Authorization: Bearer <服务密钥>`：
+已有公共 Endpoint 的服务端 MCP 客户端使用以下 Streamable HTTP 地址，并安全配置 `Authorization: Bearer <服务密钥>`；不再把“发布、启用公共 Agent”作为当前可完成的前置步骤：
 
 ```text
 POST /api/v1/agent-endpoints/{endpointId}/a2a/mcp
@@ -23,7 +24,7 @@ MCP 地址不作为新的 A2A 协议绑定写进 Agent Card。
 
 | MCP 工具 | 参数与结果 |
 |---|---|
-| `a2a_send_message` | 标准 A2A SendMessageRequest，立即返回 `{task}`；不是执行完成承诺 |
+| `a2a_send_message` | 标准 A2A SendMessageRequest 形状；当前公共执行拒绝，返回工具错误而非新任务 |
 | `a2a_get_task` | 标准 GetTaskRequest，返回有权读取的 `{task}` 与交付物 |
 | `a2a_list_tasks` | 标准 ListTasksRequest；适配器限制为每页最多 20 个摘要，不含历史和交付物 |
 | `a2a_cancel_task` | 标准 CancelTaskRequest，返回取消后的当前 `{task}`；WORKING 表示尚未停止 |
@@ -33,8 +34,7 @@ workspace、模型、系统提示词或工具覆盖。操作失败返回 MCP `is
 
 ## 使用官方 MCP 客户端
 
-以下代码使用项目已经锁定的 MCP SDK，无需新增其他 Agent 框架。令牌通过客户端秘密配置
-或进程环境提供，不写进源码。它只演示提交和读取一次，不会无限轮询或自动重提任务。
+以下代码保留项目锁定 MCP SDK 的历史调用形状，当前会在提交阶段得到安全的工具错误，不应期待新 Task。令牌通过客户端秘密配置或进程环境提供，不写进源码。它不会无限轮询或自动重提任务。
 
 ```typescript
 import { randomUUID } from 'node:crypto';

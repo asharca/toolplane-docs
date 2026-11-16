@@ -105,14 +105,14 @@ LSP/debug 依赖完整性校验失败须恢复正确制品，不自动覆盖用�
 
 只有挂载在 `/workspace` 的 named volume 会被复制或快照。容器可写层、其他挂载中的数据
 和外部服务都不包含。例如，写到 `/workspace` 之外的文件、只装进运行中容器可写层的包，
-不会被复制到克隆，也不会被快照恢复捕获或回滚。
+不会被复制到克隆，也不会被快照恢复捕获或回滚。智能体软件清单位于卷内，会随卷复制；新容器可据此重新安装，但这不等于快照保存了完整软件环境，见[共享沙箱的软件安装](#共享沙箱的软件安装)。
 
 用户 Connector 沙箱不支持克隆或快照操作。Connector 数据留在用户机器上，ToolPlane 不复
 制也不删除它。
 
 #### 智能体共享沙箱与会话目录
 
-Pi SDK 和 OMP 按智能体共享一个持久 Docker 执行环境，固定版本运行时只安装一次。每个会话在 `/workspace/conversations/` 下使用自己的工作目录、插件、技能和原生历史；无控制台会话的本地 A2A context 也有独立目录。HOME（`/workspace/.toolplane/agent-home`）和 XDG 目录按智能体共享，CLI 登录、配置和 `~/.local/bin` 安装对该智能体所有会话可见，删除会话不会清除，删除智能体时随卷删除；`gh auth logout` 等操作同样影响所有会话。会话目录中的 `shared` 链接指向 `/workspace/shared`，用于显式共享文件。文件面板和终端以当前会话目录为根；文件面板拒绝 `.toolplane` 路径，并在解析符号链接后只允许访问当前会话目录和 `/workspace/shared`。终端流每 15 秒重新校验凭据、成员资格和映射。
+Pi SDK 按智能体共享一个持久 Docker 执行环境，固定版本运行时只安装一次；OMP 等退役运行时仅保留只读历史。每个会话在 `/workspace/conversations/` 下使用自己的工作目录、插件、技能和原生历史；无控制台会话的本地 A2A context 也有独立目录。HOME（`/workspace/.toolplane/agent-home`）和 XDG 目录按智能体共享，CLI 登录、配置和 `~/.local/bin` 安装对该智能体所有会话可见，删除会话不会清除，删除智能体时随卷删除；`gh auth logout` 等操作同样影响所有会话。会话目录中的 `shared` 链接指向 `/workspace/shared`，用于显式共享文件。文件面板和终端以当前会话目录为根；文件面板拒绝 `.toolplane` 路径，并在解析符号链接后只允许访问当前会话目录和 `/workspace/shared`。终端流每 15 秒重新校验凭据、成员资格和映射。
 
 这是同一智能体内的目录分离，不是进程／容器级隔离；原生 shell 在该智能体授权的共享容器内执行。不同智能体仍有独立容器和可写卷，不能用另一智能体或会话的令牌访问平台文件入口。打开尚未执行的会话不会展示或创建模板工作区。会话终端保持打开不阻止已运行沙箱中的后续 turn；真正的启动和破坏性生命周期操作仍要求独占访问。
 
@@ -133,11 +133,24 @@ Pi SDK 和 OMP 按智能体共享一个持久 Docker 执行环境，固定版本
 任务互等。调低限额不打断正在执行的任务。公共端点保留独立限额，但当前不接受新发布或执行。
 持久本地/远端任务另有工作区准入边界：平台执行上限加 16 个排队名额，原有存储配额仍生效。
 
-旧独立会话卷在首次使用时停止原容器、校验卷摘要并完整复制到共享卷内的会话目录；复制成功后才原子切换 Conversation、Work、Context 和插件快照映射。原卷作为只读迁移归档保留至智能体删除，失败不创建空历史替代原数据。原生 Pi／OMP 路由元数据重定位，消息正文不改写。
+旧独立会话卷迁移会先停止原容器、校验卷摘要并完整复制到共享卷内的会话目录；复制成功后才原子切换 Conversation、Work、Context 和插件快照映射。原卷作为只读迁移归档保留至智能体删除，失败不创建空历史替代原数据。路由元数据重定位不改写消息正文，也不使退役运行时重新可执行。
 
 默认空闲 15 分钟后，运行时所有者停止共享容器但保留卷。管理员可在**管理后台 → 系统设置 → 智能体沙箱空闲自动关闭**关闭此行为，让已启动的容器持续运行；不会自动启动尚未使用的沙箱，也不影响手动停止、服务关闭或停止／删除恢复。设置在下一轮维护时生效，无需重启；恢复默认会重新启用空闲自动关闭。有执行、待处理任务、文件／终端流或活跃 PTY 时不停止。下次执行启动同一个沙箱。删除单个会话只停止其宿主／MCP 并清理该会话目录，不删除共享容器或其他会话；失败保留删除意图供重试。删除整个智能体才移除共享运行时和迁移归档。共享环境不兼容的会话升级被拒绝，不隐式替换其他会话使用的环境。
 
 部署前备份数据库与卷，应用 `20261103000000_agent_shared_sandbox`、`20261103010000_shared_sandbox_conversations` 和 `20261103020000_shared_sandbox_package_sets`，重新生成 Prisma 客户端并按单运行时所有者流程重启。
+
+#### 共享沙箱的软件安装
+
+会话在共享容器内以镜像默认用户执行（预置镜像为 root），根文件系统可写。安装的系统包对该智能体所有会话可见，但容器重建会丢弃可写层。ToolPlane 用卷内的 `/workspace/.toolplane/environment/packages.list` 记录可重装的软件，不把它当作不可变修订或完整环境备份。
+
+- 每轮执行后及移除运行中的容器前，记录相对初始基线新增的 apt 手动安装包、npm 全局包和默认 Python 环境中由 pip／uv 安装的包；npm、pip 记录版本。卸载后会移除相应条目，仅删清单行而不卸载则会在下一次记录时重新加入。
+- 新容器先记录镜像自带软件，再后台重装清单。重装不阻止会话执行，所以依赖尚未就绪时工具仍可能失败；不要把容器启动成功当作软件恢复完成。重装期间暂停更新清单，输出在同目录 `replay.log`，失败项保存在 `failed.list` 和清单中，下次重建重试。
+- apt 使用当时软件源版本；npm、pip 按记录版本安装。软件源不可达或禁网时可能失败。清单不保存私有软件源凭据，也不保证精确复现旧容器。
+- 不覆盖下载到 `/usr/local/bin` 的文件、源码编译产物、cargo/go 等其他管理器或独立 Python 虚拟环境。需要持久保存的文件应放在 `/workspace`；共享 HOME 中的文件本身随卷保留，不依赖重装。
+- 已有容器首次记录时以当时软件为基线，不补记此前安装。运行用户须能写入卷内记录目录和容器内 `/var/lib/toolplane`，普通非 root 自定义镜像通常不满足条件；目录不可写时不记录或重装。
+
+实现见 [`sandbox-environment.sh`](../scripts/sandbox-environment.sh)。这项恢复只重装清单软件，不恢复已经删除的文件或外部副作用。
+
 
 ### 用户 Connector
 
@@ -146,7 +159,7 @@ Connector 模式让用户暴露自己机器上的一个目录，无需开 SSH、
 命令：
 
 ```text
-npx -y --no-audit --package "http://localhost:3002/api/v1/connectors/package.tgz?v=0.1.13" connector connect --server "http://localhost:3002" --token "mcpcon_..." --root "~/toolplane-sandbox" --screen-vnc "auto"
+npx -y --no-audit --package "https://<实例域名>/api/v1/connectors/package.tgz?v=<控制台生成的版本>" connector connect --server "https://<实例域名>" --token "<一次性连接令牌>" --root "<本地目录>" --screen-vnc "auto"
 ```
 
 Connector 要求 Node.js 20+、能访问 ToolPlane 的 HTTP 和 WebSocket 端点、能访问 npm
@@ -166,7 +179,7 @@ x64/arm64，`node-pty` 在其上使用 ConPTY。如果 PowerShell 策略阻止 `
 Android 通过一台旁边装有 `adb` 的电脑使用同一个 connector：
 
 ```text
-npx -y --no-audit --package "http://localhost:3002/api/v1/connectors/package.tgz?v=0.1.13" connector connect --server "http://localhost:3002" --token "mcpcon_..." --root "/sdcard/ToolPlane" --android "auto"
+npx -y --no-audit --package "https://<实例域名>/api/v1/connectors/package.tgz?v=<控制台生成的版本>" connector connect --server "https://<实例域名>" --token "<一次性连接令牌>" --root "/sdcard/ToolPlane" --android "auto"
 ```
 
 手机可使用 USB 调试或 Android 11+ 无线调试。`auto` 要求恰好一台已授权设备，否则传入
@@ -287,7 +300,7 @@ connector 进程，在沙箱页生成新命令并重新运行。旧进程会被�
 `/api/v1/agent-runtime/sandboxes/{sandboxId}/rpc` 调用外挂沙箱工具；该入口只接受携带
 该沙箱 ID 的会话运行时令牌，每次请求重新校验修订和当前挂载，实际权限取两者较低者。
 解除挂载或降低级别立即收窄已有会话，不会让整轮失败；沙箱停止或离线时工具列表为空、
-调用返回错误。外挂沙箱工具与 MCP 工具一样经过原生工具审批。
+调用返回错误。外挂沙箱工具与 MCP 工具同样受已应用的工具策略约束；平台 `toolApproval` 和 Pi 扩展原生对话不是一回事，审批入口与豁免见[工具审批](AGENT_WORKBENCH.zh-CN.md#工具审批)。
 
 ### SSH 服务器
 

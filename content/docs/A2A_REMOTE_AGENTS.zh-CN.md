@@ -117,7 +117,7 @@ ToolPlane Task ID 与远端 Task ID 分开。查询与续写使用返回的 **To
 
 文件 Part 的接收、签名链接和传输仍校验来源及任务权限；HTTP 需要管理员全局授权，不因此放行私网或任意目标。远端若固定只接受 32 KiB 内联文件或 HTTPS 链接，管理员设置只能解除本平台的限制，不能改变远端。公共 Endpoint 执行限制、推送订阅及远程取消／重试语义不因这些设置改变。
 
-URL 文件下载和任务文件存储使用独立的管理员单文件上限：默认 10 MiB，可配置为 1–100 MiB。声明长度和实际分块字节数均受限，下载传输总超时仍为 15 秒。每任务 100 MiB、最多 20 个文件及工作区 1 GiB 的聚合保护不变；普通附件上传上限不随之改变。同一上限也约束沙箱文件回传与 MCP 结果文件生成。升级前须应用 `20261105010000_a2a_file_size_limit` 数据库迁移。
+URL 文件下载和任务文件存储默认最多 10 MiB／文件，可配置为 1–100 MiB。声明长度和实际分块字节数均受限，下载传输总超时仍为 15 秒；同一单文件上限也约束沙箱回传与 MCP 结果文件。每任务输入合计默认 100 MiB、文件数默认 20 个、工作区合计默认 1 GiB，均由管理员在同一设置中配置，见[传输与文件设置](RUNTIME_OPERATIONS.zh-CN.md#管理员传输调试设置)。输出文件不计入任务输入合计，仍占文件数和工作区容量；输入超限返回具体原因。普通附件上传上限不随之改变。升级前须应用 `20261105010000_a2a_file_size_limit` 数据库迁移。
 
 私网文件来源跟随「管理后台 → 系统设置 → 私网主机白名单」，与 Remote MCP、SSH 共用 `network.privateHosts`，不再单独配置文件来源环境变量。例如已有 `*.gshbzw.com` 时，`minio.gshbzw.com` 可解析到允许的 RFC1918 地址；仍须校验全部 DNS 答案并固定到通过校验的地址。未列入白名单的公网文件仍须匹配 A2A 来源白名单。回环、链路本地、云元数据及其他保留地址始终拒绝，白名单不会放宽 Card／RPC 的来源和公网边界。
 
@@ -131,6 +131,6 @@ pnpm vitest run tests/integration/a2a-remote.test.ts
 pnpm exec tsc --noEmit
 ```
 
-测试使用未修改的官方 A2A ClientFactory/JSONRPC transport、替身网络和隔离数据库。
-本地 PGlite 模式明确跳过真实 PostgreSQL 并发领取用例；不能将这些结果当成真实远端、
-CLI/模型、浏览器端到端或完整官方 TCK 验收。
+测试使用未修改的官方 A2A ClientFactory/JSONRPC transport、替身网络和隔离 PostgreSQL；运行前生成 Prisma Client 并应用迁移。它们不能代替真实远端服务、模型与沙箱链路、浏览器端到端或完整官方 TCK 验收。
+
+保留的 `TOOLPLANE_TEST_PGLITE=1` 模式会跳过真实 PostgreSQL 并发领取测试，不能据此证明数据库并发锁正确；完整检查应使用真实 PostgreSQL。
