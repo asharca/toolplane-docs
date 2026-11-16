@@ -151,6 +151,41 @@ Pi SDK 按智能体共享一个持久 Docker 执行环境，固定版本运行�
 
 实现见 [`sandbox-environment.sh`](../scripts/sandbox-environment.sh)。这项恢复只重装清单软件，不恢复已经删除的文件或外部副作用。
 
+#### 桌面与接管
+
+新建 Pi Agent 时打开 **桌面和浏览器**，它的沙箱改用 `ghcr.io/asharca/toolplane-desktop`
+（ToolPlane Dockerfile 的 `sandbox-desktop` 目标）：Node 26 镜像加上只监听容器回环地址的
+Xvnc（1280×800）、openbox 和 Chromium。只能在创建时选择，已有 Agent 的修订环境不变。首个
+修订固定 2 GiB 内存、2 CPU、512 个进程（再乘以每个 Agent 的并发上限），普通 Agent 仍是
+512 MiB、1 CPU、128 个进程。自建镜像源时用同一目标构建，并设置
+`TOOLPLANE_DESKTOP_SANDBOX_IMAGE`。
+
+镜像用标签 `io.toolplane.desktop.rfb-port` 声明 VNC 端口。ToolPlane 通过 `docker exec` 在
+容器内桥接这个端口，不对外发布端口。Work 的 **屏幕** 面板和沙箱详情页复用 Connector 屏幕
+的一次性 viewer ticket 和 `/screen/view/<ticket>` 转发，所以部署要求相同：设置
+`CONNECTOR_WS_PUBLIC_URL`，并让反向代理转发 `/screen/*` 的 WebSocket 升级。
+
+Agent 获得三个工具，截图以图片交给模型，所以要选支持图片输入的模型：
+
+- `desktop_computer`：截图、点击、输入、按键、滚动和拖拽，坐标为屏幕像素。
+- `desktop_browser`：经 CDP 操作同一个 Chromium 窗口：打开网址、读取页面文本和带编号的
+  可交互元素、按编号点击或输入、按键、滚动、后退、截图。
+- `desktop_request_takeover`：遇到人机验证、单点登录、通行密钥、扫码、支付验证或必须本人
+  操作的步骤时请用户接管。原因只能是 `captcha`、`sso`、`passkey`、`qr`、
+  `payment_verification`、`human_required`。
+
+请求接管时本轮暂停，Work 显示接管卡片并打开屏幕面板。用户点 **打开屏幕** 进入控制模式，
+只完成被卡住的那一步，再点 **已完成，继续**：屏幕自动退回只读，Agent 继续执行；点 **取消**
+则 Agent 不会自动重试。等待受本轮截止时间限制，服务重启后不会恢复。没有网页界面的入口（如
+消息渠道）会直接返回不可用，由 Agent 在回复里说明需要用户做什么。
+
+屏幕处于控制模式时，服务端在容器内写入 30 秒租约并每 10 秒续期；租约有效期间，桌面工具返回
+`DISPLAY_USER_CONTROLLED` 失败结果，本轮继续。关闭控制或断开屏幕后移除租约。
+
+浏览器配置目录位于 Agent 共享 HOME 的 `.config/toolplane-chromium`，登录状态随卷保留，并对
+该 Agent 的所有会话可见。Agent 拥有 shell，能读取其中的 Cookie，也能绕过租约直接操作 X
+显示；租约只用于协调，不是安全边界。密码和验证码应在接管时直接输入到屏幕上，不要发到聊天里。
+
 
 ### 用户 Connector
 
