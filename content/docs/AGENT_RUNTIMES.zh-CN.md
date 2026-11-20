@@ -206,7 +206,9 @@ UI 请求和持久展示投影上限为 256 KiB，最多 32 个待答对话和 6
 
 单次模型请求失败时，宿主按工作区设置 **模型请求重试**（`Workspace.modelRetryAttempts`，0–10，默认 3，工作区成员均可修改）在本轮内原地重试，退避为 2s、4s、8s…。每轮开始时读取当前值，不进入修订，也不重启常驻宿主。可重试的失败沿用 Pi 的瞬时错误判定（限流、5xx、超时、连接中断、流未结束等），另外加入网关已返回 HTTP 200、却在流中报告上游空响应的情况（例如 sub2api 的 `empty_stream`）。失败请求保留在原始历史，但不作为 assistant 回合重新发给模型；重试在 SDK 请求恢复边界进行，不重新提交用户 prompt。
 
-同模型重试耗尽后，固定修订 `fallbackModels` 可按顺序尝试最多三个精确 provider/model 对，每个独立使用同模型重试预算；本轮一旦出现任何 `tool_execution_start` 就不再切换兜底，避免重放已有或未知副作用。鉴权/非瞬态 4xx、取消及全局任务截止不兜底；下一轮重新选择准入主模型。`roleModels.compaction/title` 分别服务原生压缩与会话命名，缺省沿用主模型；额外 provider/model 必须在固定授权中精确列出，且每次检查实时目录/凭据。实际应答模型通过既有 `data-agent-turn-model` 展示，用量按真实模型分别计价，不把兜底变成全局默认。
+遇到可切换的模型错误时，优先按固定修订 `fallbackModels` 的顺序尝试下一可用模型；无可用兜底时，仍可对瞬时错误使用当前模型的重试预算。工具执行过也能切换：原生 SDK 只续跑失败的模型请求，保留已完成的工具调用及结果，不重发用户消息、不回放工具。取消和任务截止不触发兜底，上下文溢出仍由压缩处理。失败后切走的模型有冷却期，后续回合优先选择未冷却的模型。
+
+`roleModels.compaction/title` 分别服务原生压缩与会话命名，缺省沿用主模型；额外 provider/model 必须在固定授权中精确列出，且每次检查实时目录/凭据。实际应答模型通过既有 `data-agent-turn-model` 展示，用量按真实模型分别计价，不把兜底变成全局默认。
 
 所有可用模型仍失败或错误不可重试时，返回固定原因并附带最后实际模型的同模型重试次数，例如 `PI_SDK_MODEL_FAILED: EMPTY_STREAM RETRIED_3`。原因只来自白名单：`HTTP_nnn`、`UNREACHABLE`、`TIMEOUT`、`EMPTY_STREAM`、`STREAM_INCOMPLETE`、`CONTENT_FILTER`、`PROVIDER_ERROR`、`GATEWAY_ERROR`；供应商原文不会离开宿主。`GATEWAY_ERROR` 表示 ToolPlane 网关内部处理失败，不能归因于供应商。重试计入任务总时限，SDK 内部恢复/压缩方法变化须重新验证。
 
