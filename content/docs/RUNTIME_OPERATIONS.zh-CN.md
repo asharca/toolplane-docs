@@ -364,9 +364,9 @@ Agent/Assistant 自动发布只刷新 MCP 授权的新修订；已有会话保�
 不作为新审批入口；旧 `waiting_approval` Work 标为失败，不自动执行或重放。
 数据库仅保存有界 Web 投影，原生会话文件仍是 todo 和上下文的权威来源。
 
-每个 Pi Agent 按固定环境懒创建一个持久沙箱，会话在 `/workspace/conversations/` 下拥有独立目录；不同 Agent 不共享可写卷。同一 Agent 内目录分离不是原生 shell 的安全隔离。Pi SDK 固定安装按 Agent 复用，原生状态在会话目录的 `.toolplane/runtimes/pi-sdk/agents/<agent-id>/` 下。数据库管理会话身份、修订、包固定引用、任务回执与授权；共享 sandboxId 不再唯一标识会话或插件快照。保留 context 必须重新打开原会话；状态丢失须排查或恢复卷，不伪造历史。
+每个 Pi 会话按固定修订环境懒创建一个独立的 gVisor（`runsc`）沙箱，会话之间不共享可写卷；宿主机必须在 Docker 中注册 `runsc`，否则拒绝启动会话沙箱。原生状态在会话目录的 `.toolplane/runtimes/pi-sdk/agents/<agent-id>/` 下。数据库管理会话身份、修订、包固定引用、任务回执与授权。空闲 15 分钟停止容器；连续 7 天无活动时，Pi 原生状态写入 `PiSessionCheckpoint` 后删除容器和卷，下次执行时在新沙箱中恢复。保留 context 必须重新打开原会话；状态丢失须排查或恢复卷，不伪造历史。
 
-共享沙箱切换须备份后应用 `20261103000000_agent_shared_sandbox`、`20261103010000_shared_sandbox_conversations`、`20261103020000_shared_sandbox_package_sets`，生成客户端并重启。Pi 旧卷首次执行时校验后完整迁入会话目录，再原子移动 Conversation／Context／Work／PiSessionPackageSet 映射；原卷只读保留至 Agent 删除。原生 JSONL 只重定位 session 头与宿主路径。OMP 既有卷和标题前导记录、消息正文仅作历史保留，不触发执行迁移。不得把旧授权令牌复制成新执行凭据。
+每会话沙箱切换须备份后应用 `20261127000000_session_sandboxes`，生成客户端并重启。迁移把旧的 Agent 级共享沙箱标记为只读归档，并由运行时所有者停止其容器；某个会话首次执行时，只把它自己的会话目录和 Pi 状态复制到新的会话卷，再原子移动 Conversation／Context／Work／PiSessionPackageSet 映射。共享 HOME、`/workspace/shared` 不迁移，原卷只读保留至 Agent 删除。OMP 既有卷和标题前导记录、消息正文仅作历史保留，不触发执行迁移。不得把旧授权令牌复制成新执行凭据。
 
 同会话串行、原生/session-MCP 租约及原有 Agent/平台并发限制继续生效。停止和取消
 停止绑定进程及会话 MCP sidecar，不删除工作卷。本文其他章节的通用 owner、dirty-marker

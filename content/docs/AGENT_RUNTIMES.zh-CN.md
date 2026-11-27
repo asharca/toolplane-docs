@@ -53,7 +53,7 @@ Pi SDK 在创建／发布前准备：从固定 digest 的 `toolplane-pi-package-
 
 Agent、Work 与 Assistant 的自动会话标题（包括首条消息生成的临时标题）最多 20 个 Unicode 字符，空格、标点和省略号计入上限。模型命名优先概括为 6–10 个中文字或 2–4 个短词，服务端对超长输出强制截短。此限制不作用于回复正文，不批量改写已有标题，也不覆盖手动命名。
 
-Work 会话菜单的**删除对话**需要确认，永久删除该会话的消息、工作记录及可独立清理的工作目录和附件，保留同一智能体的共享沙箱与其他会话；不可分割的旧版恢复卷沿用保留策略。排队、运行、等待输入或正在访问文件／终端时拒绝删除，错误保留在确认弹窗。成功后仅移除对应列表项：删除其他会话不切换当前会话，删除当前项才通过客户端导航切到同一智能体的其他会话；两者均不整页重载，保留侧栏展开及滚动状态。
+Work 会话菜单的**删除对话**需要确认，永久删除该会话的消息、工作记录、附件以及它自己的沙箱（容器、卷和快照），不影响同一智能体的其他会话；尚未迁移的会话只删除映射，旧共享归档保留到智能体删除时。排队、运行、等待输入或正在访问文件／终端时拒绝删除，错误保留在确认弹窗。成功后仅移除对应列表项：删除其他会话不切换当前会话，删除当前项才通过客户端导航切到同一智能体的其他会话；两者均不整页重载，保留侧栏展开及滚动状态。
 
 ## 2. 固定执行链路
 
@@ -62,7 +62,7 @@ Chat / 消息渠道 / Work / 本地 A2A
   → 鉴权，校验工作区、Agent 与会话准入
   → 固定不可变修订 ∩ 当前实时权限
   → 获取会话/沙箱租约并执行并发限制
-  → 获取该 Agent 的共享沙箱及当前会话目录
+  → 获取该会话自己的 gVisor 沙箱（按需创建、启动或从回收中恢复）
   → sandbox-turn.ts / sandbox-runtime.ts
   → Pi：native-runtime-session.mjs → pi-sdk-session.mjs → 官方 AgentSession
   → 受控模型 / 原生扩展 UI / MCP / 协作 broker
@@ -100,13 +100,13 @@ SDK 要求 Linux、Node 26，原生包架构须匹配 Docker daemon。可信运�
 
 保留的历史事件 parser 用于解释已存数据，不意味着旧适配器仍可执行。
 
-## 4. 会话固定引用与共享工作环境
+## 4. 会话固定引用与会话沙箱
 
-新 Conversation、Work 和本地 A2A context 持久化 `agentRevisionId`；Work 在分配目录前的准入阶段固定修订。每个 Agent 按固定环境懒创建一个持久沙箱，不读取当前可变模板。会话分别使用 `/workspace/conversations/conversation-<身份摘要>/`；无 Conversation 的 A2A 使用 `context-<身份摘要>`。Pi SDK 安装在共享的 `/workspace/.toolplane/runtime-packages/`，插件装配、技能、宿主 socket、临时文件和原生历史位于各会话目录。HOME 与 XDG 目录是 Agent 级的 `/workspace/.toolplane/agent-home`：CLI 登录（如 `gh auth login`）、Git 全局配置和 `~/.local/bin` 用户级安装在该 Agent 的所有会话、终端和入口间共享，属于可变环境而非修订内容；需要不同外部身份时应拆成不同 Agent。`/workspace/shared` 是显式共享文件目录，每个会话目录中有指向它的 `shared` 链接。目录分离不是同一 Agent 内的容器安全隔离；不同 Agent 不共享可写卷。共享沙箱执行租约按会话划分：同一会话串行，同一 Agent 的不同会话在管理员的单 Agent／平台并发限额内并行；停止、删除、迁移等生命周期操作独占整个沙箱。共享运行时安装和新会话绑定在同一沙箱内依次进行，不阻塞已在执行的会话。
+新 Conversation、Work 和本地 A2A context 持久化 `agentRevisionId`；Work 在分配目录前的准入阶段固定修订。每个会话按自己固定的修订环境懒创建一个独立的 gVisor 沙箱，不读取当前可变模板；绑定在会话上的本地 A2A Context 与该会话共用沙箱，无 Conversation 的 A2A Context 单独一个。卷内路径保持不变：会话目录为 `/workspace/conversations/conversation-<身份摘要>/` 或 `context-<身份摘要>`，Pi SDK 安装在 `/workspace/.toolplane/runtime-packages/`，HOME 与 XDG 目录为 `/workspace/.toolplane/agent-home`。由于卷只属于一个会话，CLI 登录（如 `gh auth login`）、Git 全局配置和用户级安装都只在本会话内有效；需要跨会话或跨 Agent 共享时挂载外挂沙箱。同一会话串行，同一 Agent 的不同会话在各自沙箱中、在管理员的单 Agent／平台并发限额内并行；停止、删除、回收等生命周期操作只独占该会话的沙箱。
 
-显式调用 Agent 会话的 `POST /api/v1/agents/{agentId}/conversations/{conversationId}/revision` 升级时，Conversation、关联 Work 及属于该会话的普通入口 Context 在同一事务内前移到当前修订；Context 的目标绑定同步更新，ID、原生状态和目录不变。共享沙箱的环境固定引用和其他会话不变；改变镜像、网络、凭据等共享环境的升级返回 `AGENT_SHARED_ENVIRONMENT_CONFLICT`，不会隐式影响其他会话。历史任务、授权快照、消息和幂等回执不重写。存在排队、执行、等待输入/授权或尚未停止的后代任务时拒绝升级。普通发送消息不会隐式升级。
+显式调用 Agent 会话的 `POST /api/v1/agents/{agentId}/conversations/{conversationId}/revision` 升级时，Conversation、关联 Work 及属于该会话的普通入口 Context 在同一事务内前移到当前修订；Context 的目标绑定同步更新，ID、原生状态和目录不变。环境（镜像、网络等）变化只作用于该会话自己的沙箱，其他会话的固定引用不变。历史任务、授权快照、消息和幂等回执不重写。存在排队、执行、等待输入/授权或尚未停止的后代任务时拒绝升级。普通发送消息不会隐式升级。
 
-`PiSessionPackageSet` 按 Conversation／Context 记录准确包 release/checksum 和 MCP 绑定，不以共享 sandboxId 作为唯一身份；同一容器内不同会话可保留不同版本。工作区包更新、新应用默认和回滚只影响新会话。普通卸载或下架保留已引用的批准制品；危险 release 撤销和当前 provider、凭据、包、MCP、方向性协作限制仍阻止执行。固定引用不是不可撤销权限快照。
+`PiSessionPackageSet` 按 Conversation／Context 记录准确包 release/checksum 和 MCP 绑定，不以 sandboxId 作为唯一身份，沙箱被回收后仍保留；同一 Agent 的不同会话可保留不同版本。工作区包更新、新应用默认和回滚只影响新会话。普通卸载或下架保留已引用的批准制品；危险 release 撤销和当前 provider、凭据、包、MCP、方向性协作限制仍阻止执行。固定引用不是不可撤销权限快照。
 
 条目下架后，新建 Work 在写入 Conversation/Work 记录前返回 `PI_PACKAGE_UNAVAILABLE`，不为新任务分配执行资源；已有会话仍按上述固定引用与实时撤销规则处理。
 
