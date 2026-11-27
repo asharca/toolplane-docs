@@ -11,8 +11,8 @@
 Endpoint、API 客户端或私人 Conversation。公开 Context 保留发布修订与客户端隔离。
 公共凭据不能访问本地入口，公共执行服务也不能取得私人 Agent 的权限。
 
-本地可执行目标仅为 Pi SDK 1.5.2，兼容记录 0.87.1 的修订、会话和捕获包；其他运行时历史只读。使用已应用修订中的模型、MCP、Skill、能力包及 Agent 共享沙箱，具体规则见[版本与修订兼容](RUNTIME_OPERATIONS.zh-CN.md#不可变-pi-sdk-修订)。
-`Context.id` 绑定独立原生上下文与会话目录，不共享来源会话目录；同一上下文串行，同一 Agent 内仍共享沙箱、HOME 和可写卷，不构成 shell 安全隔离。
+本地可执行目标仅为 Pi SDK 1.5.2，兼容记录 0.87.1 的修订、会话和捕获包；其他运行时历史只读。使用已应用修订中的模型、MCP、Skill、能力包及沙箱环境，具体规则见[版本与修订兼容](RUNTIME_OPERATIONS.zh-CN.md#不可变-pi-sdk-修订)。
+`Context.id` 绑定独立原生上下文；没有绑定会话的 Context 拥有自己的 gVisor 会话沙箱，绑定在会话上的 Context 与该会话共用沙箱。同一上下文串行，不同会话之间不共享 HOME 或可写卷。
 
 新链路直接接原生沙箱执行端口，不调用旧 `runAgentTurn`、旧协作 Worker、Responses API
 或 `runDedicatedSandboxTurn`。受支持运行时的经典聊天、Work、Control MCP 和显式授权渠道
