@@ -180,6 +180,14 @@ MCP 工具调用、资源读取和回调请求的结果原样返回给调用方�
 认证请求头或配置文件内容改写或拒绝结果；MCP 自身负责不在结果中返回凭据。
 写入日志前仍按上述规则脱敏。
 
+## KVM 电脑部署
+
+[KVM 电脑](./SANDBOXES.zh-CN.md#kvm-电脑)通过 `virsh` 使用宿主机的 libvirt（`TOOLPLANE_LIBVIRT_URI`，默认 `qemu:///system`），并用 `cloud-localds` 生成 cloud-init 盘。宿主机需要 KVM（`/dev/kvm`）、libvirt 和 QEMU；运行 ToolPlane 的用户需在 `libvirt` 组。首次创建时，ToolPlane 幂等创建存储池 `toolplane-vm`（`/var/lib/libvirt/images/toolplane-vm`）、NAT 网络 `toolplane-vm`（网桥 `tpvm0`，子网由 `TOOLPLANE_VM_SUBNET` 指定，默认 `10.213.0.0/24`，不得与宿主机已有网段冲突）和网络过滤器 `toolplane-vm-egress`／`toolplane-vm-nic`。libvirt 不可用时，创建返回 `VM_HOST_UNAVAILABLE`，不影响其他功能。
+
+容器部署默认不开启此功能。需要时叠加 `docker-compose.kvm.yml`，它把宿主机的 `/var/run/libvirt/libvirt-sock` 挂进应用容器，并要求用 `TOOLPLANE_LIBVIRT_GID` 指定该套接字所属组的数字 ID。挂载 libvirt 套接字等于把宿主机的虚拟化控制权交给应用，只应在可信主机上开启。
+
+Ubuntu 上 libvirt 启用了 AppArmor，ToolPlane 生成的域使用 `type='file'` 磁盘，以便 AppArmor 能放行 qcow2 的基础镜像链；手工修改域定义时不要改成 `type='volume'`。删除电脑时会一并清理域、磁盘、cloud-init 盘和 DHCP 静态分配；启动对账只记录库中没有对应记录的 `toolplane-vm-*` 域，不会自动删除。
+
 ## 单一运行时所有者
 
 `runtime/owner.ts` 用**独立长期连接**持有 PostgreSQL session advisory lock，不使用连接池中的短事务锁。数据库和 `TOOLPLANE_RUNTIME_DOMAIN`（默认 `default`）确定所有权域，同域两个进程不能同时恢复或操作运行时。操作同一 Docker 资源的所有应用必须使用相同数据库和 domain；改 domain 不是绕过所有权冲突的安全办法。
